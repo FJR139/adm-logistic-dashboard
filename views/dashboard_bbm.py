@@ -169,11 +169,20 @@ def render_dashboard(conn):
         k2_loss = df_kap2['loss_kalkulasi'].sum() if ('loss_kalkulasi' in df_kap2.columns and not df_kap2.empty) else 0
 
         # --- 5. TABS AREA (UI) ---
+        bulan_list = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+        tgl_format = f"{selected_date.day} {bulan_list[selected_date.month - 1]} {selected_date.year}"
+
         tab1, tab2 = st.tabs(["📍 Area KAP 1", "📍 Area KAP 2"])
         kapasitas_max = 20000
 
         # ================= TAB 1: KAP 1 =================
         with tab1:
+            st.markdown(f"""
+                <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E5E7EB; padding-bottom: 10px; margin-bottom: 15px;'>
+                    <h3 style='margin: 0; color: #1E293B;'>Data Operasional - KAP 1</h3>
+                    <span style='background-color: #005A9E; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📅 {tgl_format}</span>
+                </div>
+            """, unsafe_allow_html=True)
             st.write("### Data Operasional - KAP 1")
             
             c1, c2, c3, c4 = st.columns(4)
@@ -236,6 +245,12 @@ def render_dashboard(conn):
 
         # ================= TAB 2: KAP 2 =================
         with tab2:
+            st.markdown(f"""
+                <div style='display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E5E7EB; padding-bottom: 10px; margin-bottom: 15px;'>
+                    <h3 style='margin: 0; color: #1E293B;'>Data Operasional - KAP 2</h3>
+                    <span style='background-color: #005A9E; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📅 {tgl_format}</span>
+                </div>
+            """, unsafe_allow_html=True)
             st.write("### Data Operasional - KAP 2")
             
             c1, c2, c3, c4 = st.columns(4)
