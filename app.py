@@ -129,7 +129,7 @@ st.markdown("""
             border-radius: 6px 6px 0 0;
             padding: 8px 16px;
             font-weight: 600;
-        }
+        }       
     </style>
 """, unsafe_allow_html=True)
 
