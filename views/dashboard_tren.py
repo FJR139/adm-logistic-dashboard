@@ -150,6 +150,29 @@ def render_dashboard_tren(conn):
                 st.write("")
                 st.write("")
 
+
+                with st.expander("📁 Lihat Tabel Data Historis & Ekspor ke Excel"):
+                    st.markdown(f"**Tabel Rincian Operasional {area} - Perioed {bulan_nama}{tahun}**")
+
+
+                df_export = df[['tanggal', 'id_area', 'stok_awal_level_meter', 'total_pengisian', 'total_pemakaian', 'stok_akhir_level_meter', 'loss_kalkulasi', 'status_loss']].copy()
+
+
+                st.dataframe(df_export, use_container_width=True)
+
+
+
+                csv_data = df_export.to_csv(index=False).encode('utf-8')
+
+
+                st.download_button(
+                    label="📥 Download Data Historis ke Excel",
+                    data=csv_data,
+                    file_name=f"Data_Historis_{area}_{bulan_nama}{tahun}.csv",
+                    mime='text/csv',
+                    type="primary"
+                )
+                st.write("")
                 # --- 3. GRAFIK 1: Tren Penerimaan vs Pemakaian ---
                 st.markdown("""
                     <div class='chart-container-box'>
