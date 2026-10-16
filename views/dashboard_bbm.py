@@ -183,7 +183,6 @@ def render_dashboard(conn):
                     <span style='background-color: #005A9E; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📅 {tgl_format}</span>
                 </div>
             """, unsafe_allow_html=True)
-            st.write("### Data Operasional - KAP 1")
             
             c1, c2, c3, c4 = st.columns(4)
             with c1:
@@ -251,7 +250,6 @@ def render_dashboard(conn):
                     <span style='background-color: #005A9E; color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>📅 {tgl_format}</span>
                 </div>
             """, unsafe_allow_html=True)
-            st.write("### Data Operasional - KAP 2")
             
             c1, c2, c3, c4 = st.columns(4)
             with c1:
