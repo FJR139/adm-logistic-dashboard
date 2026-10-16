@@ -16,6 +16,7 @@ def get_data_tren(_conn, bulan, tahun, area):
     """
     return pd.read_sql_query(query, _conn, params=(bulan, tahun, area))
 
+
 def render_dashboard_tren(conn):
     # --- CSS Khusus Tampilan Dashboard Tren ---
     st.markdown("""
