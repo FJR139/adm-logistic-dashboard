@@ -119,6 +119,23 @@ def render_dashboard_tren(conn):
                 rata_pemakaian = df['total_pemakaian'].mean()
                 total_loss = df['loss_kalkulasi'].sum()
 
+                prev_bulan = 12 if bulan_angka == 1 else bulan_angka - 1
+                prev_tahun = tahun - 1 if prev_bulan == 12 else tahun
+                df_prev = get_data_tren(conn, prev_bulan, prev_tahun, area)
+                total_keluar_prev = df_prev['total_pemakaian'].sum() if not df_prev.empty else 0
+
+                if total_keluar_prev > 0:
+                    delta_pct = ((total_keluar - total_keluar_prev) / total_keluar_prev) * 100
+                else:
+                    delta_pct = 0.0
+
+                if delta_pct > 0:
+                    delta_html = f"<div style='font-size: 11px; color: #DC2626; font-weight: bold; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0;'>🔺 +{delta_pct:.1f}% (Naik/Boros)</div>"
+                elif delta_pct < 0:
+                    delta_html = f"<div style='font-size: 11px; color: #16A34A; font-weight: bold; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0;'>🔻 {delta_pct:.1f}% (Turun/Sehat)</div>"
+                else:
+                    delta_html = "<div style='font-size: 11px; color: #6B7280; font-weight: bold; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0;'>- Pemakaian Stabil</div>" # Menambahkan kolom untuk delta
+
                 k1, k2, k3, k4 = st.columns(4)
                 with k1:
                     st.markdown(f"""
@@ -132,6 +149,7 @@ def render_dashboard_tren(conn):
                         <div class='trend-summary-card' style='border-top-color: #EA580C;'>
                             <p class='trend-summary-title'>Total Pemakaian</p>
                             <h3 class='trend-summary-val' style='color: #EA580C;'>-{total_keluar:,.0f} <span style='font-size:14px; color:#64748B;'>L</span></h3>
+                            {delta_html}
                         </div>
                     """, unsafe_allow_html=True)
                 with k3:
