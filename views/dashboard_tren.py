@@ -94,7 +94,7 @@ def render_dashboard_tren(conn):
     if conn:
         try:
             query = """ 
-                SELECT tanggal, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi
+                SELECT tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss
                 FROM daily_stock_log
                 WHERE EXTRACT(MONTH FROM tanggal) = %s
                 AND EXTRACT(YEAR FROM tanggal) = %s
