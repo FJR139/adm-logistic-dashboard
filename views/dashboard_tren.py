@@ -4,6 +4,18 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
+@st.cache_data(ttl=600, show_spinner="Mengambil data dari Database...")
+def get_data_tren(_conn, bulan, tahun, area):
+    query = """
+        SELECT tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss
+        FROM daily_stock_log
+        WHERE EXTRACT(MONTH FROM tanggal) = %s 
+        AND EXTRACT(YEAR FROM tanggal) = %s 
+        AND id_area = %s
+        ORDER BY tanggal ASC
+    """
+    return pd.read_sql_query(query, _conn, params=(bulan, tahun, area))
+
 def render_dashboard_tren(conn):
     # --- CSS Khusus Tampilan Dashboard Tren ---
     st.markdown("""
@@ -93,15 +105,7 @@ def render_dashboard_tren(conn):
 
     if conn:
         try:
-            query = """ 
-                SELECT tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss
-                FROM daily_stock_log
-                WHERE EXTRACT(MONTH FROM tanggal) = %s
-                AND EXTRACT(YEAR FROM tanggal) = %s
-                AND id_area = %s
-                ORDER BY tanggal ASC
-            """
-            df = pd.read_sql(query, conn, params=(bulan_angka, tahun, area))
+            df = get_data_tren(conn, bulan_angka, tahun, area)
 
             if df.empty:
                 st.warning(f"⚠️ Belum ada catatan data operasional untuk **{area}** pada periode **{bulan_nama} {tahun}**.")
@@ -149,28 +153,23 @@ def render_dashboard_tren(conn):
 
                 st.write("")
                 st.write("")
+                with st.expander("📁 Lihat Tabel Data Historis & Ekspor ke Excel"):
+                    st.markdown(f"**Tabel Rincian Operasional {area} - Periode {bulan_nama} {tahun}**")
 
+                    df_export = df[['tanggal', 'id_area', 'stok_awal_level_meter', 'total_pengisian', 'total_pemakaian', 'stok_akhir_level_meter', 'loss_kalkulasi', 'status_loss']].copy()
 
-            with st.expander("📁 Lihat Tabel Data Historis & Ekspor ke Excel"):
-                st.markdown(f"**Tabel Rincian Operasional {area} - Perioed {bulan_nama}{tahun}**")
+                    st.dataframe(df_export, use_container_width=True)
 
+                    csv_data = df_export.to_csv(index=False, sep=';').encode('utf-8')
 
-                df_export = df[['tanggal', 'id_area', 'stok_awal_level_meter', 'total_pengisian', 'total_pemakaian', 'stok_akhir_level_meter', 'loss_kalkulasi', 'status_loss']].copy()
-
-
-                st.dataframe(df_export, use_container_width=True)
-
-
-
-                csv_data = df_export.to_csv(index=False).encode('utf-8')
-
-                st.download_button(
-                    label="📥 Download Data Historis ke Excel",
-                    data=csv_data,
-                    file_name=f"Data_Historis_{area}_{bulan_nama}{tahun}.csv",
-                    mime='text/csv',
-                    type="primary"
-                )
+                    st.download_button(
+                        label="📥 Download Data Historis ke Excel",
+                        data=csv_data,
+                        file_name=f"Data_Historis_{area}_{bulan_nama}_{tahun}.csv",
+                        mime='text/csv',
+                        type="primary"
+                    )
+                
                 st.write("")
                 # --- 3. GRAFIK 1: Tren Penerimaan vs Pemakaian ---
                 st.markdown("""
