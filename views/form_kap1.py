@@ -201,11 +201,11 @@ def render_kap1(conn):
                                    totalisator_out_assy = EXCLUDED.totalisator_out_assy;""",
                                 (
                                 tgl_input, 'KAP-1',
-                                round(stok_awal_aktual, 2), round(volume_f1, 2),
-                                round(total_pakai, 2), round(stok_akhir_aktual, 2),
-                                round(loss, 2), status_loss,
-                                val_tank1, val_tank2, daily_tank_actual, total_storage, totalisator_out_assy_input)
-                                 )
+                                float(round(stok_awal_aktual, 2)), float(round(volume_f1, 2)),
+                                float(round(total_pakai, 2)), float(round(stok_akhir_aktual, 2)),
+                                float(round(loss, 2)), status_loss,
+                                float(val_tank1), float(val_tank2), float(daily_tank_actual), float(total_storage), float(totalisator_out_assy_input)
+                                ))
                     conn.commit()
                     cur.close()
                     st.success(f"✅ Data KAP-1 tanggal {tgl_input.strftime('%d %B %Y')} berhasil disimpan!")

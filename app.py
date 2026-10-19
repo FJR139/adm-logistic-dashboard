@@ -20,7 +20,7 @@ from views.import_data import render_import_data
 @st.cache_resource
 def init_connection():
     try:
-        db_url = st.secrets["SUPABASE_URL"]
+        db_url = st.secrets["SUPABASE_URL"] 
         return psycopg2.connect(db_url)
     except Exception as e:
         st.error(f"Gagal terhubung ke database: {e}")
