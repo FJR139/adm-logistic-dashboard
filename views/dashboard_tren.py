@@ -2,26 +2,24 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 
 @st.cache_data(ttl=600, show_spinner="Mengambil data dari Database...")
-def get_data_tren(_conn, bulan, tahun, area):
+def get_data_tren(_conn, tgl_mulai, tgl_selesai, area):
     query = """
         SELECT tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss
         FROM daily_stock_log
-        WHERE EXTRACT(MONTH FROM tanggal) = %s 
-        AND EXTRACT(YEAR FROM tanggal) = %s 
+        WHERE tanggal BETWEEN %s AND %s
         AND id_area = %s
         ORDER BY tanggal ASC
     """
-    return pd.read_sql_query(query, _conn, params=(bulan, tahun, area))
+    return pd.read_sql_query(query, _conn, params=(tgl_mulai, tgl_selesai, area))
 
 def render_dashboard_tren(conn):
     # --- CSS Khusus Tampilan Dashboard Tren ---
     st.markdown("""
         <style>
-            /* 1. KODE UTAMA UNTUK HP - Memaksa elemen menumpuk vertikal */
             @media (max-width: 600px) {
                 .block-container {
                     padding-top: 1.2rem !important;
@@ -83,40 +81,51 @@ def render_dashboard_tren(conn):
     st.caption("Pantau fluktuasi konsumsi, penerimaan armada tangki, serta audit selisih stok secara periodik.")
     st.write("---")
 
-    # --- 1. Filter Pencarian ---
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        bulan_dict = {
-            "Januari": 1, "Februari": 2, "Maret": 3, "April": 4,
-            "Mei": 5, "Juni": 6, "Juli": 7, "Agustus": 8,
-            "September": 9, "Oktober": 10, "November": 11, "Desember": 12
-        }
-        # Default September jika data 2026
-        default_month_idx = 8 if datetime.now().year == 2026 and datetime.now().month < 9 else datetime.now().month - 1
-        bulan_nama = st.selectbox("🗓️ Pilih Bulan", list(bulan_dict.keys()), index=8)
-        bulan_angka = bulan_dict[bulan_nama]
-
-    with col2:
-        tahun = st.selectbox("📅 Pilih Tahun", [2026, 2027], index=0)
-
-    with col3:
+    # --- 1. Filter Pencarian Fleksibel ---
+    col_mode, col_area = st.columns([3, 1])
+    with col_mode:
+        mode_periode = st.radio(
+            "🗓️ Filter Periode Tampilan", 
+            ["Harian (7 Hari)", "Mingguan (28 Hari)", "Bulanan (1 Bulan)", "Kustom Rentang"], 
+            horizontal=True
+        )
+    with col_area:
         area = st.selectbox("📍 Pilih Area Operasional", ["KAP-1", "KAP-2"])
 
+    tgl_hari_ini = datetime.now().date()
+
+    if mode_periode == "Harian (7 Hari)":
+        tgl_selesai = tgl_hari_ini
+        tgl_mulai = tgl_hari_ini - timedelta(days=6)
+    elif mode_periode == "Mingguan (28 Hari)":
+        tgl_selesai = tgl_hari_ini
+        tgl_mulai = tgl_hari_ini - timedelta(days=27)
+    elif mode_periode == "Bulanan (1 Bulan)":
+        tgl_selesai = tgl_hari_ini
+        tgl_mulai = tgl_hari_ini - timedelta(days=29)
+    else:
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            tgl_mulai = st.date_input("📅 Tanggal Mulai", tgl_hari_ini - timedelta(days=7))
+        with col_d2:
+            tgl_selesai = st.date_input("📅 Tanggal Selesai", tgl_hari_ini)
+    
     st.write("")
 
     if conn:
         try:
-            df = get_data_tren(conn, bulan_angka, tahun, area)
+            df = get_data_tren(conn, tgl_mulai, tgl_selesai, area)
 
-            if 'loss_kalkulasi' in df.columns:
-                            df['status_loss'] = np.where(
-                                df['loss_kalkulasi'].notna() & (df['loss_kalkulasi'].abs() > 0.01),
-                                'SELISIH',
-                            'AMAN'
-                            )
+            # Penambal otomatis kolom status_loss
+            if not df.empty and 'loss_kalkulasi' in df.columns:
+                df['status_loss'] = np.where(
+                    df['loss_kalkulasi'].notna() & (df['loss_kalkulasi'].abs() > 0.01),
+                    'SELISIH',
+                    'AMAN'
+                )
 
             if df.empty:
-                st.warning(f"⚠️ Belum ada catatan data operasional untuk **{area}** pada periode **{bulan_nama} {tahun}**.")
+                st.warning(f"⚠️ Belum ada catatan data operasional untuk **{area}** pada rentang **{tgl_mulai.strftime('%d %b %Y')} - {tgl_selesai.strftime('%d %b %Y')}**.")
             else:
                 df['tanggal'] = pd.to_datetime(df['tanggal'])
                 df['tgl_str'] = df['tanggal'].dt.strftime('%d %b')
@@ -127,9 +136,12 @@ def render_dashboard_tren(conn):
                 rata_pemakaian = df['total_pemakaian'].mean()
                 total_loss = df['loss_kalkulasi'].sum()
 
-                prev_bulan = 12 if bulan_angka == 1 else bulan_angka - 1
-                prev_tahun = tahun - 1 if prev_bulan == 12 else tahun
-                df_prev = get_data_tren(conn, prev_bulan, prev_tahun, area)
+                # Hitung perbandingan dengan durasi periode sebelumnya yang sama panjangnya
+                durasi_hari = (tgl_selesai - tgl_mulai).days + 1
+                tgl_selesai_prev = tgl_mulai - timedelta(days=1)
+                tgl_mulai_prev = tgl_selesai_prev - timedelta(days=durasi_hari - 1)
+                
+                df_prev = get_data_tren(conn, tgl_mulai_prev, tgl_selesai_prev, area)
                 total_keluar_prev = df_prev['total_pemakaian'].sum() if not df_prev.empty else 0
 
                 if total_keluar_prev > 0:
@@ -138,11 +150,11 @@ def render_dashboard_tren(conn):
                     delta_pct = 0.0
 
                 if delta_pct > 0:
-                    delta_html = f"<div style='font-size: 11px; color: #DC2626; font-weight: bold; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0;'>🔺 +{delta_pct:.1f}% (Naik/Boros)</div>"
+                    delta_html = f"<div style='font-size: 11px; color: #DC2626; font-weight: bold; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0;'>🔺 +{delta_pct:.1f}% vs Periode Lalu</div>"
                 elif delta_pct < 0:
-                    delta_html = f"<div style='font-size: 11px; color: #16A34A; font-weight: bold; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0;'>🔻 {delta_pct:.1f}% (Turun/Sehat)</div>"
+                    delta_html = f"<div style='font-size: 11px; color: #16A34A; font-weight: bold; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0;'>🔻 {delta_pct:.1f}% vs Periode Lalu</div>"
                 else:
-                    delta_html = "<div style='font-size: 11px; color: #6B7280; font-weight: bold; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0;'>- Pemakaian Stabil</div>" # Menambahkan kolom untuk delta
+                    delta_html = "<div style='font-size: 11px; color: #6B7280; font-weight: bold; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E2E8F0;'>- Pemakaian Stabil</div>"
 
                 k1, k2, k3, k4 = st.columns(4)
                 with k1:
@@ -180,7 +192,7 @@ def render_dashboard_tren(conn):
                 st.write("")
                 st.write("")
                 with st.expander("📁 Lihat Tabel Data Historis & Ekspor ke Excel"):
-                    st.markdown(f"**Tabel Rincian Operasional {area} - Periode {bulan_nama} {tahun}**")
+                    st.markdown(f"**Tabel Rincian Operasional {area} ({tgl_mulai.strftime('%d %b %Y')} - {tgl_selesai.strftime('%d %b %Y')})**")
 
                     df_export = df[['tanggal', 'id_area', 'stok_awal_level_meter', 'total_pengisian', 'total_pemakaian', 'stok_akhir_level_meter', 'loss_kalkulasi', 'status_loss']].copy()
 
@@ -191,7 +203,7 @@ def render_dashboard_tren(conn):
                     st.download_button(
                         label="📥 Download Data Historis ke Excel",
                         data=csv_data,
-                        file_name=f"Data_Historis_{area}_{bulan_nama}_{tahun}.csv",
+                        file_name=f"Data_Historis_{area}_{tgl_mulai.strftime('%Y%m%d')}_{tgl_selesai.strftime('%Y%m%d')}.csv",
                         mime='text/csv',
                         type="primary"
                     )
@@ -223,25 +235,9 @@ def render_dashboard_tren(conn):
                     barmode='group',
                     bargap=0.25,
                     bargroupgap=0.1,
-                    xaxis=dict(
-                        title='Tanggal',
-                        showgrid=False,
-                        tickfont=dict(size=12, color='#475569')
-                    ),
-                    yaxis=dict(
-                        title='Volume (Liter)',
-                        gridcolor='#F1F5F9',
-                        zerolinecolor='#CBD5E1',
-                        tickfont=dict(size=12, color='#475569')
-                    ),
-                    legend=dict(
-                        orientation="h",
-                        yanchor="bottom",
-                        y=1.02,
-                        xanchor="right",
-                        x=1,
-                        font=dict(size=12)
-                    ),
+                    xaxis=dict(title='Tanggal', showgrid=False, tickfont=dict(size=12, color='#475569')),
+                    yaxis=dict(title='Volume (Liter)', gridcolor='#F1F5F9', zerolinecolor='#CBD5E1', tickfont=dict(size=12, color='#475569')),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=12)),
                     margin=dict(t=30, b=30, l=10, r=10),
                     plot_bgcolor='rgba(0,0,0,0)',
                     paper_bgcolor='rgba(0,0,0,0)',
@@ -253,14 +249,13 @@ def render_dashboard_tren(conn):
                 # --- 4. GRAFIK 2 & 3: 2 Kolom Sejajar ---
                 col_chart1, col_chart2 = st.columns(2)
 
-                # --- GRAFIK 2: Garis Stok Bersambung (Area Chart) ---
+                # --- GRAFIK 2: Garis Stok Bersambung ---
                 with col_chart1:
                     st.markdown("""
                         <div class='chart-container-box'>
                             <div class='chart-title-header'>📉 Tren Sisa Stok Fisik (Level Meter)</div>
                     """, unsafe_allow_html=True)
 
-                    # Buat grafik garis bersambung mulus dengan fill warna di bawah garis
                     fig2 = go.Figure()
                     fig2.add_trace(go.Scatter(
                         x=df['tgl_str'], 
@@ -271,7 +266,7 @@ def render_dashboard_tren(conn):
                         marker=dict(size=7, color='#005A9E', line=dict(width=2, color='white')),
                         fill='tozeroy',
                         fillcolor='rgba(0, 90, 158, 0.08)',
-                        connectgaps=True,  # Menyambung garis meskipun ada tanggal yang terlewati
+                        connectgaps=True,
                         hovertemplate='<b>Tgl %{x}</b><br>Stok Level Meter: <b>%{y:,.0f} L</b><extra></extra>'
                     ))
                     fig2.update_layout(
@@ -301,7 +296,6 @@ def render_dashboard_tren(conn):
                         marker=dict(color=warna_list),
                         hovertemplate='<b>Tgl %{x}</b><br>Selisih: <b>%{y:,.1f} L</b><extra></extra>'
                     ))
-                    # Garis batas 0 yang tegas
                     fig3.add_hline(y=0, line_width=1.5, line_color="#475569")
 
                     fig3.update_layout(

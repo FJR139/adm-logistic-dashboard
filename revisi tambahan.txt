@@ -1,0 +1,17 @@
+akses 3 admin
+logistik
+maintanance
+production
+
+mengecek alat
+totalisator baru
+awal akhir
+berpengaruh pada pendataan pada form input dispenser
+
+format grafik
+periode fleksibel
+bisa hari-minggu-bulan
+agar good issue tidak terlalu besar
+
+
+

@@ -19,13 +19,15 @@ def render_kap2(conn):
     st.write("")
 
     stok_awal_kemarin_kap2 = get_stok_awal(conn, "KAP-2", tgl_input)
+    # PENGAMAN 1: Cegah TypeError jika data kemarin None/kosong
+    stok_awal_display = stok_awal_kemarin_kap2 if stok_awal_kemarin_kap2 is not None else 0.0
 
     col_kiri, spacer, col_kanan = st.columns([10, 1, 10])
 
     with col_kiri:
         st.markdown("### 1. Penerimaan (F1)")
         with st.container(border=True):
-            f1_awal_in = st.number_input("Digit Awal (Liter) F1", min_value=0.0, format="%.0f", key="kap2_f1_a", step=1.0,  value=None)            
+            f1_awal_in = st.number_input("Digit Awal (Liter) F1", min_value=0.0, format="%.0f", key="kap2_f1_a", step=1.0, value=None)            
             f1_akhir_in = st.number_input("Digit Akhir (Liter)", min_value=0.0, format="%.0f", key="kap2_f1_b", step=1.0, value=None)
             f1_awal_kap2 = f1_awal_in if f1_awal_in is not None else 0.0
             f1_akhir_kap2 = f1_akhir_in if f1_akhir_in is not None else 0.0
@@ -34,8 +36,7 @@ def render_kap2(conn):
 
         st.markdown("### 2. Level Meter")
         with st.container(border=True):
-            stok_awal_kemarin_kap2 = stok_awal_kemarin_kap2 if stok_awal_kemarin_kap2 is not None else 0.0
-            st.caption(f"ℹ️ Stok Awal (Level Akhir Kemarin): **{stok_awal_kemarin_kap2:,.0f} Liter**")
+            st.caption(f"ℹ️ Stok Awal (Level Akhir Kemarin): **{stok_awal_display:,.0f} Liter**")
             pv_tank1_in = st.number_input("Tank 1 (PV) Liter", min_value=0.0, format="%.0f", key="kap2_pv1", step=1.0, value=None)
             pv_tank1_kap2 = pv_tank1_in if pv_tank1_in is not None else 0.0
 
@@ -66,7 +67,7 @@ def render_kap2(conn):
     col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
     with col_b2:
         if st.button("SUBMIT DATA HARIAN KAP-2", use_container_width=True, type="primary", key="kap2_submit"):
-            if volume_f1_kap2 < 0 or volume_f3_kap2 < 0:
+            if volume_f1_kap2 < 0 or volume_f3_kap2 < 0 or volume_f4_kap2 < 0:
                 st.error("❌ Digit akhir tidak boleh lebih kecil dari digit awal!")
             elif conn is not None:
                 try:
@@ -75,17 +76,17 @@ def render_kap2(conn):
                     # 1. Simpan Penerimaan
                     cur.execute("""INSERT INTO log_penerimaan_tangki (tanggal, id_area, kategori_sap, fm1_awal, fm1_akhir, volume_terima)
                                    VALUES (%s, %s, %s, %s, %s, %s)""",
-                                (tgl_input, 'KAP-2', 'GR', f1_awal_kap2, f1_akhir_kap2, volume_f1_kap2))
+                                (tgl_input, 'KAP-2', 'GR', float(f1_awal_kap2), float(f1_akhir_kap2), float(volume_f1_kap2)))
 
                     # 2a. Simpan Dispenser Reguler LH
                     cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
                                    VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-                                (tgl_input, 'KAP-2', 'GI Reguler', 'F3', f3_awal_kap2, f3_akhir_kap2, volume_f3_kap2))
+                                (tgl_input, 'KAP-2', 'GI Reguler', 'F3', float(f3_awal_kap2), float(f3_akhir_kap2), float(volume_f3_kap2)))
 
                     # 2b. Simpan Dispenser Reguler RH
                     cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
                                    VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-                                (tgl_input, 'KAP-2', 'GI Reguler', 'F4', f4_awal_kap2, f4_akhir_kap2, volume_f4_kap2))
+                                (tgl_input, 'KAP-2', 'GI Reguler', 'F4', float(f4_awal_kap2), float(f4_akhir_kap2), float(volume_f4_kap2)))
 
                     # 3. Kalkulasi Loss KAP 2
                     stok_awal_aktual_kap2 = get_stok_awal(conn, 'KAP-2', tgl_input)
@@ -93,6 +94,7 @@ def render_kap2(conn):
                     status_loss_kap2 = "SELISIH" if abs(loss_kap2) > 0.01 else "AMAN"
 
                     # 4. Simpan ke Daily Stock Log
+                    # PENGAMAN 2: Semua nilai angka dibungkus float() eksplisit
                     cur.execute("""INSERT INTO daily_stock_log
                                    (tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss)
                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -104,9 +106,9 @@ def render_kap2(conn):
                                    loss_kalkulasi = EXCLUDED.loss_kalkulasi,
                                    status_loss = EXCLUDED.status_loss;""",
                                 (tgl_input, 'KAP-2',
-                                 round(stok_awal_aktual_kap2, 2), round(volume_f1_kap2, 2),
-                                 round(total_volume_keluar, 2), round(pv_tank1_kap2, 2),
-                                 round(loss_kap2, 2), status_loss_kap2))
+                                 float(round(stok_awal_aktual_kap2, 2)), float(round(volume_f1_kap2, 2)),
+                                 float(round(total_volume_keluar, 2)), float(round(pv_tank1_kap2, 2)),
+                                 float(round(loss_kap2, 2)), status_loss_kap2))
 
                     conn.commit()
                     cur.close()
