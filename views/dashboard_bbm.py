@@ -34,34 +34,38 @@ def get_tank_color(current_volume, max_capacity):
 
 def generate_excel_report(df, tanggal):
     """
-    Fungsi untuk meracik dataframe menjadi file Excel .xlsx di dalam memori RAM
+    Fungsi untuk meracik dataframe menjadi file Excel .xlsx dengan styling otomatis.
     """
     output = io.BytesIO()
 
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_kap1 = df[df['id_area'] == 'KAP-1']
         df_kap2 = df[df['id_area'] == 'KAP-2']
 
-        def format_excel(writer, sheet_name, dataframe):
+        def format_excel_sheet(writer, sheet_name, dataframe):
             if not dataframe.empty:
                 dataframe.to_excel(writer, sheet_name=sheet_name, index=False)
                 worksheet = writer.sheets[sheet_name]
-
+                
+                for cell in worksheet[1]:
+                    cell.font = openpyxl.styles.Font(bold=True)
+                
                 for col in worksheet.columns:
                     max_length = 0
-                    column_letter = col[0].column_letter
+                    column_letter = col[0].column_letter # Mendapatkan huruf kolom (A, B, C...)
                     for cell in col:
                         try:
                             if len(str(cell.value)) > max_length:
                                 max_length = len(str(cell.value))
                         except:
                             pass
+                    
                     adjusted_width = (max_length + 2)
-                    worksheet.column_dimension[column_letter].width = adjusted_width
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
 
-        format_excel(writer, 'Laporan KAP-1', df_kap1)
-        format_excel(writer, 'Laporan KAP-2', df_kap2)
-        format_excel(writer, 'Data Mentah Gabungan', df)
+        format_excel_sheet(writer, 'Laporan KAP-1', df_kap1)
+        format_excel_sheet(writer, 'Laporan KAP-2', df_kap2)
+        format_excel_sheet(writer, 'Data Mentah Gabungan', df)
 
     return output.getvalue()
 
