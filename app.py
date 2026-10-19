@@ -124,9 +124,32 @@ else:
     st.sidebar.markdown("---")
 
     # Menggunakan radio button karena Anda sudah mendesainnya dengan bagus
-    menu_options = ["Portal Utama", "Form Input KAP 1", "Form Input KAP 2", "Dashboard Monitoring", "Analisis Tren Bulanan", "Import Data Historis"]
+    role_aktif = st.session_state.user_role.lower()
+
+    if role_aktif == "admin":
+        menu_options = [
+            "Portal Utama", "Form Input KAP 1", "Form Input KAP 2", 
+            "Dashboard Monitoring", "Analisis Tren Bulanan", "Import Data Historis"
+        ]
+    elif role_aktif == "manager":
+        menu_options = [
+            "Portal Utama", "Dashboard Monitoring", "Analisis Tren Bulanan"
+        ]
+    elif role_aktif == "operator": # HARUS HURUF KECIL
+        menu_options = [
+            "Portal Utama", "Form Input KAP 1", "Form Input KAP 2"
+        ]
+    else:
+        menu_options = ["Portal Utama"]
+
+    # Proteksi fallback
+    if st.session_state.selected_menu not in menu_options:
+        st.session_state.selected_menu = "Portal Utama"
+
+    # Radio button dengan parameter index yang benar
     menu = st.sidebar.radio("Navigasi", menu_options, index=menu_options.index(st.session_state.selected_menu), label_visibility="collapsed")
-    
+
+    # Logika deteksi klik menu yang benar
     if menu != st.session_state.selected_menu:
         st.session_state.selected_menu = menu
         st.rerun()
