@@ -178,3 +178,4 @@ else:
         render_dashboard_tren(conn)
     elif menu == "Import Data Historis":
         render_import_data(conn)
+    

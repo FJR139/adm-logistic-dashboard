@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import datetime
 import base64
+import io
+import openpyxl
 
 def get_tank_color(current_volume, max_capacity):
     """
@@ -29,6 +31,39 @@ def get_tank_color(current_volume, max_capacity):
     visual_percentage = min(percentage, 100)
 
     return visual_percentage, color, status, css_class
+
+def generate_excel_report(df, tanggal):
+    """
+    Fungsi untuk meracik dataframe menjadi file Excel .xlsx di dalam memori RAM
+    """
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_kap1 = df[df['id_area'] == 'KAP-1']
+        df_kap2 = df[df['id_area'] == 'KAP-2']
+
+        def format_excel(writer, sheet_name, dataframe):
+            if not dataframe.empty:
+                dataframe.to_excel(writer, sheet_name=sheet_name, index=False)
+                worksheet = writer.sheets[sheet_name]
+
+                for col in worksheet.columns:
+                    max_length = 0
+                    column_letter = col[0].column_letter
+                    for cell in col:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = (max_length + 2)
+                    worksheet.column_dimension[column_letter].width = adjusted_width
+
+        format_excel(writer, 'Laporan KAP-1', df_kap1)
+        format_excel(writer, 'Laporan KAP-2', df_kap2)
+        format_excel(writer, 'Data Mentah Gabungan', df)
+
+    return output.getvalue()
 
 def get_image_as_base64(file_path):
     try:
@@ -164,7 +199,8 @@ def render_dashboard(conn):
     """, unsafe_allow_html=True)
 
     # --- 3. HEADER & FILTER TANGGAL ---
-    col_date, _ = st.columns([3, 5])
+    col_date, col_download, spacer = st.columns([3, 3, 4])
+
     with col_date:
         st.markdown("### 🗓️ Tanggal")
         selected_date = st.date_input("📅 Tanggal", datetime.date.today(), label_visibility="collapsed")
@@ -176,13 +212,24 @@ def render_dashboard(conn):
     # ==========================================
     # PENANGANAN STATUS DATA KOSONG (BLANK STATE)
     # ==========================================
+    with col_download:
+        st.write("")
+        if not df_hari_ini.empty:
+            excel_data = generate_excel_report(df_hari_ini, selected_date)
+
+            st.download_button(
+                label="📥 Unduh Laporan BBM",
+                data=excel_data,
+                file_name=f"Laporan BBM {selected_date.strftime('%d-%m-%Y')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", # <-- Koma sudah ditambahkan
+                use_container_width=True
+            )
     if df_hari_ini.empty:
         st.write("")
         st.warning(f"⚠️ **Data operasional untuk tanggal {selected_date.strftime('%d %B %Y')} belum tersedia.**")
         st.info("💡 Tim lapangan belum melakukan submit. Silakan isi data melalui menu **Form Input KAP 1 / KAP 2** terlebih dahulu.")
     
     else:
-        # HANYA JALANKAN INI JIKA ADA DATA
         df_kap1 = df_hari_ini[df_hari_ini['id_area'] == 'KAP-1'] if not df_hari_ini.empty else pd.DataFrame()
         df_kap2 = df_hari_ini[df_hari_ini['id_area'] == 'KAP-2'] if not df_hari_ini.empty else pd.DataFrame()
         
