@@ -108,6 +108,13 @@ def render_dashboard_tren(conn):
         try:
             df = get_data_tren(conn, bulan_angka, tahun, area)
 
+            if 'loss_kalkulasi' in df.columns:
+                            df['status_loss'] = np.where(
+                                df['loss_kalkulasi'].notna() & (df['loss_kalkulasi'].abs() > 0.01),
+                                'SELISIH',
+                            'AMAN'
+                            )
+
             if df.empty:
                 st.warning(f"⚠️ Belum ada catatan data operasional untuk **{area}** pada periode **{bulan_nama} {tahun}**.")
             else:
@@ -309,12 +316,6 @@ def render_dashboard_tren(conn):
                     st.plotly_chart(fig3, use_container_width=True, key="grafik_loss_selisih")
                     st.markdown("</div>", unsafe_allow_html=True)
 
-            if 'loss_kalkulasi' in df.columns:
-                df['status_loss'] = np.where(
-                    df['loss_kalkulasi'].notna() & (df['loss_kalkulasi'].abs() > 0.01),
-                    'SELISIH',
-                'AMAN'
-                )
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat memuat visualisasi tren: {e}")
     else:
