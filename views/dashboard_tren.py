@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
+import numpy as np
 
 @st.cache_data(ttl=600, show_spinner="Mengambil data dari Database...")
 def get_data_tren(_conn, bulan, tahun, area):
@@ -15,7 +16,6 @@ def get_data_tren(_conn, bulan, tahun, area):
         ORDER BY tanggal ASC
     """
     return pd.read_sql_query(query, _conn, params=(bulan, tahun, area))
-
 
 def render_dashboard_tren(conn):
     # --- CSS Khusus Tampilan Dashboard Tren ---
@@ -309,6 +309,12 @@ def render_dashboard_tren(conn):
                     st.plotly_chart(fig3, use_container_width=True, key="grafik_loss_selisih")
                     st.markdown("</div>", unsafe_allow_html=True)
 
+            if 'loss_kalkulasi' in df.columns:
+                df['status_loss'] = np.where(
+                    df['loss_kalkulasi'].notna() & (df['loss_kalkulasi'].abs() > 0.01),
+                    'SELISIH',
+                'AMAN'
+                )
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat memuat visualisasi tren: {e}")
     else:
