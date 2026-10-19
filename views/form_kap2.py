@@ -34,6 +34,7 @@ def render_kap2(conn):
 
         st.markdown("### 2. Level Meter")
         with st.container(border=True):
+            stok_awal_kemarin_kap2 = stok_awal_kemarin_kap2 if stok_awal_kemarin_kap2 is not None else 0.0
             st.caption(f"ℹ️ Stok Awal (Level Akhir Kemarin): **{stok_awal_kemarin_kap2:,.0f} Liter**")
             pv_tank1_in = st.number_input("Tank 1 (PV) Liter", min_value=0.0, format="%.0f", key="kap2_pv1", step=1.0, value=None)
             pv_tank1_kap2 = pv_tank1_in if pv_tank1_in is not None else 0.0
