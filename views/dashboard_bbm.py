@@ -4,6 +4,7 @@ import datetime
 import base64
 import io
 import openpyxl
+import numpy as np
 
 def get_tank_color(current_volume, max_capacity):
     """
@@ -36,6 +37,12 @@ def generate_excel_report(df, tanggal):
     """
     Fungsi untuk meracik dataframe menjadi file Excel .xlsx dengan styling otomatis.
     """
+    if 'loss_kalkulasi' in df.columns:
+        df['status_loss'] = np.where(
+            df['loss_kalkulasi'].notna() & (df['loss_kalkulasi'].abs() > 0.01), 
+            'SELISIH', 
+            'AMAN'
+        )
     output = io.BytesIO()
 
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
