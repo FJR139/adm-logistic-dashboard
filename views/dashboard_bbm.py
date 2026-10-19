@@ -3,6 +3,33 @@ import pandas as pd
 import datetime
 import base64
 
+def get_tank_color(current_volume, max_capacity):
+    """
+    Menghitung persentase dan mengembalikan warna status tangki.
+    """
+
+    if max_capacity <= 0:
+        return 0, "#E5373B", "Tidak Diketahui"
+
+    percentage = (current_volume / max_capacity) * 100
+
+    if percentage > 50:
+        color = "#10B981"
+        status = "Aman"
+        css_class = ""
+    elif percentage > 20:
+        color = "#F59E0B"
+        status = "Sedang"
+        css_class = ""
+    else:
+        color = "#EF4444"
+        status = "kritis"
+        css_class = "critical-blink"
+
+    visual_percentage = min(percentage, 100)
+
+    return visual_percentage, color, status, css_class
+
 def get_image_as_base64(file_path):
     try:
         with open(file_path, "rb") as image_file:
@@ -126,6 +153,13 @@ def render_dashboard(conn):
                 position: absolute; top: 40%; width: 100%; text-align: center; font-weight: 800; 
                 color: #FFFFFF; text-shadow: 0 2px 4px rgba(0,0,0,0.7); z-index: 4; padding: 0 6px;
             }
+            @keyframes blinkwarning {
+                0% { opacity: 1; }
+                50% { opacity: 0.6; box-shadow: 0 0 15px rgba(255, 68, 68, 0.8); }
+                100% { opacity: 1; }
+            }
+            .critical-blink {
+                animation: blinkwarning 1s infinite;}
         </style>
     """, unsafe_allow_html=True)
 
@@ -224,12 +258,27 @@ def render_dashboard(conn):
             max_total = 20000.0
 
             def render_twin_tank(nama, level_saat_ini, kapasitas_maksimal):
-                persentase = min(int((level_saat_ini / kapasitas_maksimal) * 100), 100) if kapasitas_maksimal > 0 else 0
+                pct, color, status, blink_class = get_tank_color(level_saat_ini, kapasitas_maksimal)
                 return f"""
-                    <div style='text-align: center; margin-bottom: 10px; font-weight: bold; color: #475569;'>{nama}</div>
-                    <div class='tank-container' style='height: 250px; width: 140px;'>
-                        <div class='tank-fill' style='height: {persentase}%;'></div>
-                        <div class='tank-text' style='font-size: 15px;'>{level_saat_ini:,.1f}<br><span style='font-size:12px; font-weight: 600; opacity: 0.9;'>({persentase}%)</span></div>
+                    <div style='text-align: center; margin-bottom: 5px; font-weight: bold; color: #475569;'>{nama}</div>
+                    
+                    <div class='tank-container' style='height: 250px; width: 140px; border-color: {color};'>
+                        <!-- Cairan tangki dengan warna dinamis -->
+                        <div class='tank-fill {blink_class}' style='
+                            height: {pct}%; 
+                            background: {color};
+                            border-top: 2px solid rgba(255,255,255,0.4);
+                            box-shadow: 0 -2px 10px {color}80;
+                            '>
+                        </div>
+                        <div class='tank-text' style='font-size: 15px;'>
+                            {level_saat_ini:,.1f} L<br>
+                            <span style='font-size:12px; font-weight: 600; opacity: 0.9;'>({int(pct)}%)</span>
+                        </div>
+                    </div>
+                    
+                    <div style='text-align: center; margin-top: 8px; font-size: 12px;'>
+                        Status: <strong style='color: {color};'>{status.upper()}</strong>
                     </div>
                     """
 
@@ -279,12 +328,18 @@ def render_dashboard(conn):
             st.divider()
             persen_isi_k2 = min(int((k2_akhir / kapasitas_max) * 100), 100) if kapasitas_max > 0 else 0
 
+            pct_k2, color_k2, status_k2, blink_k2 = get_tank_color(k2_akhir, kapasitas_max)
+
             _, col_tank_k2, _ = st.columns([1, 2, 1])
             with col_tank_k2:
                 st.markdown("<h4 style='text-align: center; color: #333;'>Storage Tank KAP 2</h4>", unsafe_allow_html=True)            
                 st.markdown(f"""
-                    <div class='tank-container' style='height: 280px; width: 180px;'>
-                        <div class='tank-fill' style='height: {persen_isi_k2}%;'></div>
-                        <div class='tank-text'>Level Meter<br>{k2_akhir:,.0f} L<br><span style='font-size:13px; font-weight:600; opacity:0.9;'>({persen_isi_k2}%)</span></div>
+                    <div class='tank-container' style='height: 280px; width: 180px; border-color: {color_k2};'>
+                        <div class='tank-fill {blink_k2}' style='height: {pct_k2}%; background: {color_k2};'></div>
+                        <div class='tank-text'>
+                            Level Meter<br>{k2_akhir:,.0f} L<br>
+                            <span style='font-size:13px; font-weight:600; opacity:0.9;'>({int(pct_k2)}%)</span>
+                        </div>
                     </div>
+                    <p style='text-align: center; margin-top: 10px;'>Status: <b style='color: {color_k2};'>{status_k2.upper()}</b></p>
                 """, unsafe_allow_html=True)
