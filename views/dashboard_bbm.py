@@ -347,8 +347,6 @@ def render_dashboard(conn):
             with tank_col3:
                 st.markdown(render_twin_tank("DAILY TANK", k1_daily_tank, max_daily), unsafe_allow_html=True)
             with tank_col4:
-                st.markdown(render_twin_tank("STORAGE TOTAL", k1_akhir, max_total), unsafe_allow_html=True)
-
                 total_aktual_tangki = k1_tank1 + k1_tank2 + k1_daily_tank
                 st.markdown(render_twin_tank("STORAGE TOTAL", total_aktual_tangki, max_total), unsafe_allow_html=True)
         # ================= TAB 2: KAP 2 =================
