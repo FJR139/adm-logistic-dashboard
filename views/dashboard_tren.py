@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
@@ -8,7 +7,9 @@ import numpy as np
 @st.cache_data(ttl=600, show_spinner="Mengambil data dari Database...")
 def get_data_tren(_conn, tgl_mulai, tgl_selesai, area):
     query = """
-        SELECT tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss
+        SELECT tanggal, id_area, stok_awal_level_meter, total_pengisian, 
+               total_pemakaian, stok_akhir_level_meter, 
+               loss_kalkulasi, status_loss, tank1_level, tank2_level, daily_tank_level
         FROM daily_stock_log
         WHERE tanggal BETWEEN %s AND %s
         AND id_area = %s
@@ -59,29 +60,27 @@ def render_dashboard_tren(conn):
             }
             .chart-container-box {
                 background: white;
-                padding: 12px 10px 5px 10px !important;
+                padding: 15px !important;
                 border-radius: 12px;
                 border: 1px solid #E2E8F0;
                 box-shadow: 0 3px 10px rgba(0,0,0,0.03);
-                margin-bottom: 21px !important;
+                margin-bottom: 25px !important;
             }
             .chart-title-header {
-                font-size: 14px !important;
-                font-weight: 700;
-                color: #0F172A;
-                margin-bottom: 12px;
-                display: flex;
-                align-items: center;
-                gap: 8px;
+                font-size: 16px !important;
+                font-weight: 800;
+                color: #1E293B;
+                margin-bottom: 15px;
+                text-align: center;
             }
         </style>
     """, unsafe_allow_html=True)
 
     st.markdown("<h3 style='color: #005A9E; font-weight: 800; margin-bottom: 5px;'>📈 Analisis Tren Historis BBM</h3>", unsafe_allow_html=True)
-    st.caption("Pantau fluktuasi konsumsi, penerimaan armada tangki, serta audit selisih stok secara periodik.")
+    st.caption("Pantau komposisi tangki, arus penerimaan/pemakaian, deviasi, serta pembandingan Stok Actual vs SAP.")
     st.write("---")
 
-    # --- 1. Filter Pencarian Fleksibel ---
+    # --- 1. Filter Periode Fleksibel ---
     col_mode, col_area = st.columns([3, 1])
     with col_mode:
         mode_periode = st.radio(
@@ -128,7 +127,12 @@ def render_dashboard_tren(conn):
                 st.warning(f"⚠️ Belum ada catatan data operasional untuk **{area}** pada rentang **{tgl_mulai.strftime('%d %b %Y')} - {tgl_selesai.strftime('%d %b %Y')}**.")
             else:
                 df['tanggal'] = pd.to_datetime(df['tanggal'])
-                df['tgl_str'] = df['tanggal'].dt.strftime('%d %b')
+                df['tgl_str'] = df['tanggal'].dt.strftime('%d-%b')
+
+                # Isi nilai null pada tangki dengan angka 0
+                df['tank1_level'] = df['tank1_level'].fillna(0)
+                df['tank2_level'] = df['tank2_level'].fillna(0)
+                df['daily_tank_level'] = df['daily_tank_level'].fillna(0)
 
                 # --- 2. Ringkasan Eksekutif (KPI Header) ---
                 total_masuk = df['total_pengisian'].sum()
@@ -191,15 +195,116 @@ def render_dashboard_tren(conn):
 
                 st.write("")
                 st.write("")
+
+                # ================= GRAFIK 1: Volume Tank (Stacked Bar) =================
+                st.markdown("<div class='chart-container-box'>", unsafe_allow_html=True)
+                st.markdown("<div class='chart-title-header'>Volume Tank</div>", unsafe_allow_html=True)
+                
+                fig_vol = go.Figure()
+                fig_vol.add_trace(go.Bar(x=df['tgl_str'], y=df['tank1_level'], name='Tank 1', marker_color='#595959'))
+                fig_vol.add_trace(go.Bar(x=df['tgl_str'], y=df['tank2_level'], name='Tank 2', marker_color='#858585'))
+                fig_vol.add_trace(go.Bar(x=df['tgl_str'], y=df['daily_tank_level'], name='Daily Tank', marker_color='#FFC000'))
+                
+                fig_vol.update_layout(
+                    barmode='stack',
+                    xaxis=dict(showgrid=False, tickangle=-45, tickfont=dict(size=10)),
+                    yaxis=dict(title='Volume (Liter)', gridcolor='#E2E8F0'),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    margin=dict(t=20, b=40, l=10, r=10),
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    height=350
+                )
+                st.plotly_chart(fig_vol, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                # ================= GRAFIK 2: IN-OUT Tank (Diverging Bar) =================
+                st.markdown("<div class='chart-container-box'>", unsafe_allow_html=True)
+                st.markdown("<div class='chart-title-header'>IN-OUT Tank</div>", unsafe_allow_html=True)
+                
+                fig_inout = go.Figure()
+                fig_inout.add_trace(go.Bar(x=df['tgl_str'], y=df['total_pengisian'], name='Input from Pertamina', marker_color='#70AD47'))
+                fig_inout.add_trace(go.Bar(x=df['tgl_str'], y=-df['total_pemakaian'], name='Production Consume', marker_color='#ED7D31'))
+                
+                fig_inout.update_layout(
+                    barmode='relative',
+                    xaxis=dict(showgrid=False, tickangle=-45, tickfont=dict(size=10)),
+                    yaxis=dict(title='Volume (Liter)', gridcolor='#E2E8F0', zerolinecolor='#475569', zerolinewidth=1.5),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    margin=dict(t=20, b=40, l=10, r=10),
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    height=350
+                )
+                st.plotly_chart(fig_inout, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                # ================= GRAFIK 3: Deviation (liter) =================
+                st.markdown("<div class='chart-container-box'>", unsafe_allow_html=True)
+                st.markdown("<div class='chart-title-header'>Deviation</div>", unsafe_allow_html=True)
+                
+                labels_dev = [f"{v:,.0f}" if pd.notnull(v) and v != 0 else "" for v in df['loss_kalkulasi']]
+                
+                fig_dev = go.Figure()
+                fig_dev.add_trace(go.Bar(
+                    x=df['tgl_str'], 
+                    y=df['loss_kalkulasi'], 
+                    name='Deviation (liter)', 
+                    marker_color='#9DC3E6',
+                    text=labels_dev,
+                    textposition='outside'
+                ))
+                
+                fig_dev.update_layout(
+                    xaxis=dict(showgrid=False, tickangle=-45, tickfont=dict(size=10)),
+                    yaxis=dict(title='Deviation (Liter)', gridcolor='#E2E8F0', zerolinecolor='#475569', zerolinewidth=1.5),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    margin=dict(t=30, b=40, l=10, r=10),
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    height=350
+                )
+                st.plotly_chart(fig_dev, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                # ================= GRAFIK 4: Stock Actual vs SAP =================
+                st.markdown("<div class='chart-container-box'>", unsafe_allow_html=True)
+                st.markdown("<div class='chart-title-header'>Stock Actual vs SAP</div>", unsafe_allow_html=True)
+                
+                # Menghitung estimasi stok SAP (Stok Awal + Pengisian - Pemakaian)
+                stok_sap = df['stok_awal_level_meter'] + df['total_pengisian'] - df['total_pemakaian']
+                delta_sap = df['stok_akhir_level_meter'] - stok_sap
+
+                fig_sap = go.Figure()
+                fig_sap.add_trace(go.Bar(x=df['tgl_str'], y=df['stok_akhir_level_meter'], name='Actual', marker_color='#4472C4'))
+                fig_sap.add_trace(go.Bar(x=df['tgl_str'], y=stok_sap, name='SAP', marker_color='#ED7D31'))
+                
+                # Garis merah selisih kumulatif di bagian bawah
+                fig_sap.add_trace(go.Scatter(
+                    x=df['tgl_str'], y=delta_sap, name='Delta Actual vs SAP',
+                    mode='lines+markers', line=dict(color='#FF0000', width=2),
+                    marker=dict(size=6, color='#FFFF00', line=dict(width=1.5, color='#FF0000'))
+                ))
+
+                fig_sap.update_layout(
+                    barmode='group',
+                    xaxis=dict(showgrid=False, tickangle=-45, tickfont=dict(size=10)),
+                    yaxis=dict(title='Volume (Liter)', gridcolor='#E2E8F0'),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    margin=dict(t=20, b=40, l=10, r=10),
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    height=360
+                )
+                st.plotly_chart(fig_sap, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                # --- Tabel Data & Ekspor ---
                 with st.expander("📁 Lihat Tabel Data Historis & Ekspor ke Excel"):
                     st.markdown(f"**Tabel Rincian Operasional {area} ({tgl_mulai.strftime('%d %b %Y')} - {tgl_selesai.strftime('%d %b %Y')})**")
-
                     df_export = df[['tanggal', 'id_area', 'stok_awal_level_meter', 'total_pengisian', 'total_pemakaian', 'stok_akhir_level_meter', 'loss_kalkulasi', 'status_loss']].copy()
-
                     st.dataframe(df_export, use_container_width=True)
-
                     csv_data = df_export.to_csv(index=False, sep=';').encode('utf-8')
-
                     st.download_button(
                         label="📥 Download Data Historis ke Excel",
                         data=csv_data,
@@ -207,108 +312,6 @@ def render_dashboard_tren(conn):
                         mime='text/csv',
                         type="primary"
                     )
-                
-                st.write("")
-                # --- 3. GRAFIK 1: Tren Penerimaan vs Pemakaian ---
-                st.markdown("""
-                    <div class='chart-container-box'>
-                        <div class='chart-title-header'>📊 Perbandingan Arus BBM: Penerimaan vs Pemakaian Harian</div>
-                """, unsafe_allow_html=True)
-
-                fig1 = go.Figure()
-                fig1.add_trace(go.Bar(
-                    x=df['tgl_str'], 
-                    y=df['total_pengisian'], 
-                    name='Penerimaan (Tangki Masuk)', 
-                    marker=dict(color='#16A34A', line=dict(color='#15803D', width=1)),
-                    hovertemplate='<b>Tgl %{x}</b><br>Penerimaan: <b>%{y:,.0f} L</b><extra></extra>'
-                ))
-                fig1.add_trace(go.Bar(
-                    x=df['tgl_str'], 
-                    y=df['total_pemakaian'], 
-                    name='Pemakaian (Keluar Produksi)', 
-                    marker=dict(color='#EA580C', line=dict(color='#C2410C', width=1)),
-                    hovertemplate='<b>Tgl %{x}</b><br>Pemakaian: <b>%{y:,.0f} L</b><extra></extra>'
-                ))
-                
-                fig1.update_layout(
-                    barmode='group',
-                    bargap=0.25,
-                    bargroupgap=0.1,
-                    xaxis=dict(title='Tanggal', showgrid=False, tickfont=dict(size=12, color='#475569')),
-                    yaxis=dict(title='Volume (Liter)', gridcolor='#F1F5F9', zerolinecolor='#CBD5E1', tickfont=dict(size=12, color='#475569')),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=12)),
-                    margin=dict(t=30, b=30, l=10, r=10),
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    height=340
-                )
-                st.plotly_chart(fig1, use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                # --- 4. GRAFIK 2 & 3: 2 Kolom Sejajar ---
-                col_chart1, col_chart2 = st.columns(2)
-
-                # --- GRAFIK 2: Garis Stok Bersambung ---
-                with col_chart1:
-                    st.markdown("""
-                        <div class='chart-container-box'>
-                            <div class='chart-title-header'>📉 Tren Sisa Stok Fisik (Level Meter)</div>
-                    """, unsafe_allow_html=True)
-
-                    fig2 = go.Figure()
-                    fig2.add_trace(go.Scatter(
-                        x=df['tgl_str'], 
-                        y=df['stok_akhir_level_meter'],
-                        mode='lines+markers',
-                        name='Stok Akhir',
-                        line=dict(color='#005A9E', width=3, shape='spline'),
-                        marker=dict(size=7, color='#005A9E', line=dict(width=2, color='white')),
-                        fill='tozeroy',
-                        fillcolor='rgba(0, 90, 158, 0.08)',
-                        connectgaps=True,
-                        hovertemplate='<b>Tgl %{x}</b><br>Stok Level Meter: <b>%{y:,.0f} L</b><extra></extra>'
-                    ))
-                    fig2.update_layout(
-                        xaxis=dict(title='Tanggal', showgrid=False, tickfont=dict(size=11, color='#475569')),
-                        yaxis=dict(title='Volume Tangki (Liter)', gridcolor='#F1F5F9', tickfont=dict(size=11, color='#475569')),
-                        margin=dict(t=20, b=30, l=10, r=10),
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        height=320
-                    )
-                    st.plotly_chart(fig2, use_container_width=True, key="grafik_stok_tangki")
-                    st.markdown("</div>", unsafe_allow_html=True)
-
-                # --- GRAFIK 3: Selisih / Loss Harian ---
-                with col_chart2:
-                    st.markdown("""
-                        <div class='chart-container-box'>
-                            <div class='chart-title-header'>⚠️ Pantauan Selisih / Loss Kalkulasi</div>
-                    """, unsafe_allow_html=True)
-
-                    warna_list = ['#DC2626' if val < 0 else ('#16A34A' if val == 0 else '#2563EB') for val in df['loss_kalkulasi']]
-                    
-                    fig3 = go.Figure()
-                    fig3.add_trace(go.Bar(
-                        x=df['tgl_str'], 
-                        y=df['loss_kalkulasi'], 
-                        marker=dict(color=warna_list),
-                        hovertemplate='<b>Tgl %{x}</b><br>Selisih: <b>%{y:,.1f} L</b><extra></extra>'
-                    ))
-                    fig3.add_hline(y=0, line_width=1.5, line_color="#475569")
-
-                    fig3.update_layout(
-                        xaxis=dict(title='Tanggal', showgrid=False, tickfont=dict(size=11, color='#475569')),
-                        yaxis=dict(title='Loss / Selisih (Liter)', gridcolor='#F1F5F9', tickfont=dict(size=11, color='#475569')),
-                        showlegend=False,
-                        margin=dict(t=20, b=30, l=10, r=10),
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        height=320
-                    )
-                    st.plotly_chart(fig3, use_container_width=True, key="grafik_loss_selisih")
-                    st.markdown("</div>", unsafe_allow_html=True)
 
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat memuat visualisasi tren: {e}")
