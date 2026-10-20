@@ -32,7 +32,11 @@ def render_kap2(conn):
             f1_awal_kap2 = f1_awal_in if f1_awal_in is not None else 0.0
             f1_akhir_kap2 = f1_akhir_in if f1_akhir_in is not None else 0.0
             volume_f1_kap2 = f1_akhir_kap2 - f1_awal_kap2
-            st.caption(f"Volume Masuk: {volume_f1_kap2:.2f} Liter")
+
+            if volume_f1_kap2 < 0:
+                st.error(f"❌ **Error:** Digit akhir lebih kecil! (Selisih: {volume_f1_kap2:,.0f} L)")
+            else:
+                st.info(f"✅ **Volume:** {volume_f1_kap2:,.0f} Liter")
 
         st.markdown("### 2. Level Meter")
         with st.container(border=True):
@@ -41,33 +45,23 @@ def render_kap2(conn):
             pv_tank1_kap2 = pv_tank1_in if pv_tank1_in is not None else 0.0
 
     with col_kanan:
-        st.markdown("### 3. Dispenser Reguler")
-        st.markdown("**Shift A (Pompa LH / F3)**")
+        st.markdown("### 3. Pengeluaran Dispenser")
         with st.container(border=True):
-            f3_awal_in = st.number_input("Digit Awal LH (Liter)", min_value=0.0, format="%.0f", key="kap2_f3_a", step=1.0, value=None)
-            f3_akhir_in = st.number_input("Digit Akhir LH (Liter)", min_value=0.0, format="%.0f", key="kap2_f3_b", step=1.0, value=None)
-            f3_awal_kap2 = f3_awal_in if f3_awal_in is not None else 0.0
-            f3_akhir_kap2 = f3_akhir_in if f3_akhir_in is not None else 0.0
-            volume_f3_kap2 = f3_akhir_kap2 - f3_awal_kap2
-            st.caption(f"Volume Keluar LH: {volume_f3_kap2:.2f} Liter")
+            analog_awal_in = st.number_input("Digit Awal LH (Liter)", min_value=0.0, format="%.0f", key="kap2_f3_a", step=1.0, value=None)
+            analog_akhir_in = st.number_input("Digit Akhir LH (Liter)", min_value=0.0, format="%.0f", key="kap2_f3_b", step=1.0, value=None)
+            analog_awal_kap2 = analog_awal_in if analog_awal_in is not None else 0.0
+            analog_akhir_kap2 = analog_akhir_in if analog_akhir_in is not None else 0.0
+            volume_keluar_kap2 = analog_akhir_kap2 - analog_awal_kap2
+            if volume_keluar_kap2 < 0:
+                st.error(f"❌ **Error:** Digit akhir lebih kecil! (Selisih: {volume_keluar_kap2:,.0f} L)")
+            else:
+                st.info(f"**Total Volume Keluar:** {volume_keluar_kap2:,.0f} Liter")
 
-        st.markdown("**Shift B (Pompa RH / F4)**")
-        with st.container(border=True):
-            f4_awal_in = st.number_input("Digit Awal RH (Liter)", min_value=0.0, format="%.0f", key="kap2_f4_a", step=1.0, value=None)
-            f4_akhir_in = st.number_input("Digit Akhir RH (Liter)", min_value=0.0, format="%.0f", key="kap2_f4_b", step=1.0, value=None)
-            f4_awal_kap2 = f4_awal_in if f4_awal_in is not None else 0.0
-            f4_akhir_kap2 = f4_akhir_in if f4_akhir_in is not None else 0.0
-            volume_f4_kap2 = f4_akhir_kap2 - f4_awal_kap2
-            st.caption(f"Volume Keluar RH: {volume_f4_kap2:.2f} Liter")
-
-        # Total Pengeluaran F3 + F4 
-        total_volume_keluar = volume_f3_kap2 + volume_f4_kap2
-        st.info(f"Total Volume Keluar: {total_volume_keluar:.2f} Liter")
-    
+    st.write("---")    
     col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
     with col_b2:
         if st.button("SUBMIT DATA HARIAN KAP-2", use_container_width=True, type="primary", key="kap2_submit"):
-            if volume_f1_kap2 < 0 or volume_f3_kap2 < 0 or volume_f4_kap2 < 0:
+            if volume_f1_kap2 < 0 or volume_keluar_kap2 < 0:
                 st.error("❌ Digit akhir tidak boleh lebih kecil dari digit awal!")
             elif conn is not None:
                 try:
@@ -78,23 +72,17 @@ def render_kap2(conn):
                                    VALUES (%s, %s, %s, %s, %s, %s)""",
                                 (tgl_input, 'KAP-2', 'GR', float(f1_awal_kap2), float(f1_akhir_kap2), float(volume_f1_kap2)))
 
-                    # 2a. Simpan Dispenser Reguler LH
+                    # 2. Simpan Dispenser Reguler (Hanya 1 Analog LH)
                     cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
                                    VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-                                (tgl_input, 'KAP-2', 'GI Reguler', 'F3', float(f3_awal_kap2), float(f3_akhir_kap2), float(volume_f3_kap2)))
-
-                    # 2b. Simpan Dispenser Reguler RH
-                    cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
-                                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-                                (tgl_input, 'KAP-2', 'GI Reguler', 'F4', float(f4_awal_kap2), float(f4_akhir_kap2), float(volume_f4_kap2)))
+                                (tgl_input, 'KAP-2', 'GI Reguler', 'Meter Analog LH', float(analog_awal_kap2), float(analog_akhir_kap2), float(volume_keluar_kap2)))
 
                     # 3. Kalkulasi Loss KAP 2
                     stok_awal_aktual_kap2 = get_stok_awal(conn, 'KAP-2', tgl_input)
-                    loss_kap2 = round((stok_awal_aktual_kap2 + volume_f1_kap2 - total_volume_keluar) - pv_tank1_kap2, 2)
+                    loss_kap2 = round((stok_awal_aktual_kap2 + volume_f1_kap2 - volume_keluar_kap2) - pv_tank1_kap2, 2)
                     status_loss_kap2 = "SELISIH" if abs(loss_kap2) > 0.01 else "AMAN"
 
                     # 4. Simpan ke Daily Stock Log
-                    # PENGAMAN 2: Semua nilai angka dibungkus float() eksplisit
                     cur.execute("""INSERT INTO daily_stock_log
                                    (tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss)
                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -107,7 +95,7 @@ def render_kap2(conn):
                                    status_loss = EXCLUDED.status_loss;""",
                                 (tgl_input, 'KAP-2',
                                  float(round(stok_awal_aktual_kap2, 2)), float(round(volume_f1_kap2, 2)),
-                                 float(round(total_volume_keluar, 2)), float(round(pv_tank1_kap2, 2)),
+                                 float(round(volume_keluar_kap2, 2)), float(round(pv_tank1_kap2, 2)),
                                  float(round(loss_kap2, 2)), status_loss_kap2))
 
                     conn.commit()

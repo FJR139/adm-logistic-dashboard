@@ -22,7 +22,11 @@ def render_import_data(conn):
         "total_pemakaian": [2100, 1500],
         "stok_akhir_level_meter": [17900, 13500],
         "loss_kalkulasi": [-20, 15],
-        "status_loss": ["AMAN", "AMAN"]
+        "status_loss": ["AMAN", "AMAN"],
+        "tank1_level": [8950, 6750],
+        "tank2_level": [8950, 6750],
+        "daily_tank_level": [0, 0],
+        "totalisator_out_assy": [2100, 1500]
     }
     df_template = pd.DataFrame(template_data)
     csv_template = df_template.to_csv(index=False).encode('utf-8')
@@ -78,22 +82,33 @@ def render_import_data(conn):
                                 status = None if pd.isna(row['status_loss']) else str(row['status_loss'])
                                 id_area = str(row['id_area'])
 
+                                t_tank1 = None if pd.isna(row.get('tank1_level', None)) else float(row['tank1_level'])
+                                t_tank2 = None if pd.isna(row.get('tank2_level', None)) else float(row['tank2_level'])
+                                t_daily = None if pd.isna(row.get('daily_tank_level', None)) else float(row['daily_tank_level'])
+                                t_totalisator = None if pd.isna(row.get('totalisator_out_assy', None)) else float(row['totalisator_out_assy'])
+
+
                                 cur.execute("""
                                     INSERT INTO daily_stock_log
-                                    (tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                    (tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss, tank1_level, tank2_level, daily_tank_level, totalisator_out_assy)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                     ON CONFLICT (tanggal, id_area) DO UPDATE
                                     SET stok_awal_level_meter = EXCLUDED.stok_awal_level_meter,
                                     total_pengisian = EXCLUDED.total_pengisian,
                                     total_pemakaian = EXCLUDED.total_pemakaian,
                                     stok_akhir_level_meter = EXCLUDED.stok_akhir_level_meter,
                                     loss_kalkulasi = EXCLUDED.loss_kalkulasi,
-                                    status_loss = EXCLUDED.status_loss;
-                                """, (tgl_val, id_area, s_awal, t_isi, t_pakai, s_akhir, loss, status))
+                                    status_loss = EXCLUDED.status_loss,
+                                    tank1_level = EXCLUDED.tank1_level,
+                                    tank2_level = EXCLUDED.tank2_level,
+                                    daily_tank_level = EXCLUDED.daily_tank_level,
+                                    totalisator_out_assy = EXCLUDED.totalisator_out_assy;
+                                """, (tgl_val, id_area, s_awal, t_isi, t_pakai, s_akhir, loss, status, t_tank1, t_tank2, t_daily, t_totalisator))
 
                                 sukses += 1
                             except Exception as row_error:
                                 gagal += 1
+                                st.error(f"❌ Baris ke-{index + 2} gagal diimpor: {row_error}")
 
                         conn.commit()
                         cur.close()
@@ -102,9 +117,9 @@ def render_import_data(conn):
                             st.success(f"🎉 Berhasil! {sukses} baris data berhasil diimpor ke database.")
                             st.toast("✅ Data berhasil diimpor ke sistem!", icon="💾")
                         else: 
-                            st.warning(f"Selesai dengan catatan: {sukses} baris berhasil diimpor, {gagal} baris gagal (mungkin format data salah).")
+                            st.warning(f"Selesai dengan catatan: {sukses} baris berhasil diimpor, {gagal} baris gagal. Silakan cek pesan error di atas.")
                     else:
                         st.error("Koneksi database terputus.")
 
         except Exception as e:
-            st.error(f"❌ Terjadi kesalahan saat memproses file: {e}")
+            st.error(f"❌ Terjadi kesalahan saat membaca struktur file: {e}")
