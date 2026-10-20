@@ -12,7 +12,7 @@ def get_tank_color(current_volume, max_capacity):
     """
 
     if max_capacity <= 0:
-        return 0, "#E5373B", "Tidak Diketahui"
+        return 0, "#94A38B", "Tidak Ada Data"
 
     percentage = (current_volume / max_capacity) * 100
 

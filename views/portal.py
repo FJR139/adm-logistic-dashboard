@@ -1,5 +1,7 @@
 import streamlit as st
 
+
+st.info(f"👋 Halo **{st.session_state.get('username', 'User')}**, selamat bekerja! Gunakan menu di bawah ini untuk memulai aktivitas Anda hari ini.")
 def render_portal():
     # --- CSS Kustom untuk Portal ---
     st.markdown("""
