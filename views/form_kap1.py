@@ -31,7 +31,7 @@ def render_kap1(conn):
             f1_awal = f1_awal_in if f1_awal_in is not None else 0.0
             f1_akhir = f1_akhir_in if f1_akhir_in is not None else 0.0
             volume_f1 = f1_akhir - f1_awal
-            st.caption(f"Volume Masuk: {volume_f1:.2f} Liter")
+            st.info(f"✅ **Volume Masuk (FM1):** {volume_f1:,.0f} Liter")
 
         st.markdown("### 2. Transfer Internal (FM2)")
         with st.container(border=True):
@@ -41,7 +41,7 @@ def render_kap1(conn):
             fm2_awal = fm2_awal_in if fm2_awal_in is not None else 0.0
             fm2_akhir = fm2_akhir_in if fm2_akhir_in is not None else 0.0
             volume_fm2 = fm2_akhir - fm2_awal
-            st.caption(f"Volume Transfer Internal: {volume_fm2:.2f} Liter")
+            st.info(f"✅ **Volume Transfer (FM2):** {volume_fm2:,.0f} Liter")
 
         st.markdown("### 3. Level Meter")
         col1, col2 = st.columns(2)
@@ -83,7 +83,7 @@ def render_kap1(conn):
                     rh_a_awal = rh_a_awal_in if rh_a_awal_in is not None else 0.0
                     rh_a_akhir = rh_a_akhir_in if rh_a_akhir_in is not None else 0.0
                     vol_rh_a = rh_a_akhir - rh_a_awal
-                    st.caption(f"Volume Keluar: {vol_rh_a:.2f} Liter")
+                    st.info(f"✅ **Volume Keluar RH(A):** {vol_rh_a:,.0f} Liter")
 
             with col_lh_a:
                 st.write("**Pompa LH**")
@@ -93,7 +93,7 @@ def render_kap1(conn):
                     lh_a_awal = lh_a_awal_in if lh_a_awal_in is not None else 0.0
                     lh_a_akhir = lh_a_akhir_in if lh_a_akhir_in is not None else 0.0
                     vol_lh_a = lh_a_akhir - lh_a_awal
-                    st.caption(f"Volume Keluar: {vol_lh_a:.2f} Liter")
+                    st.info(f"✅ **Volume Keluar RH(A):** {vol_rh_a:,.0f} Liter")
 
         # ----- SHIFT B -----
         with tab_shift_b:
@@ -108,7 +108,7 @@ def render_kap1(conn):
                     rh_b_awal = rh_b_awal_in if rh_b_awal_in is not None else 0.0
                     rh_b_akhir = rh_b_akhir_in if rh_b_akhir_in is not None else 0.0
                     vol_rh_b = rh_b_akhir - rh_b_awal
-                    st.caption(f"Volume Keluar: {vol_rh_b:.2f} Liter")
+                    st.info(f"✅ **Volume Keluar RH(A):** {vol_rh_a:,.0f} Liter")
 
             with col_lh_b:
                 st.write("**Pompa LH**")
@@ -118,7 +118,7 @@ def render_kap1(conn):
                     lh_b_awal = lh_b_awal_in if lh_b_awal_in is not None else 0.0
                     lh_b_akhir = lh_b_akhir_in if lh_b_akhir_in is not None else 0.0
                     vol_lh_b = lh_b_akhir - lh_b_awal
-                    st.caption(f"Volume Keluar: {vol_lh_b:.2f} Liter")
+                    st.info(f"✅ **Volume Keluar RH(A):** {vol_rh_a:,.0f} Liter")
 
         # Kalkulasi Total
         total_volume_reguler = vol_rh_a + vol_lh_a + vol_rh_b + vol_lh_b
@@ -128,7 +128,7 @@ def render_kap1(conn):
         with st.container(border=True):
             f5_total_in = st.number_input("Total Volume (Liter) RnD", min_value=0.0, format="%.0f", key="kap1_f5_total", step=1.0, value=None)
             volume_f5 = f5_total_in if f5_total_in is not None else 0.0
-            st.caption(f"Volume Keluar Non-Reguler: {volume_f5:.0f} Liter")
+            st.info(f"✅ **Volume Keluar Non-Reguler:** {volume_f5:,.0f} Liter")
             
         st.subheader("6. Totalisator OUT ASSY")
         tot_out_in = st.number_input("Input Totalisator OUT ASSY", min_value=0.0, format="%.0f", step=1.0, value=None)
