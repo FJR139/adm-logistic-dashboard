@@ -35,7 +35,7 @@ if 'selected_menu' not in st.session_state:
 
 if "logged_in" not in st.session_state:
     # UBAH KE 'False' NANTI JIKA INGIN LOGIN BENAR-BENAR DIAKTIFKAN
-    st.session_state.logged_in = False 
+    st.session_state.logged_in = True 
     st.session_state.username = "Admin Testing"
     st.session_state.user_role = "Admin"
 
