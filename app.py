@@ -1,14 +1,5 @@
 import streamlit as st
 import psycopg2
-import datetime
-import base64
-import os
-
-# Mengatur konfigurasi halaman (HARUS PALING ATAS)
-st.set_page_config(page_title="Sistem Monitoring BBM PT ADM", layout="wide", initial_sidebar_state="expanded")
-
-# --- 1. IMPORT MODUL TAMPILAN ---
-from views.login import render_login
 from views.portal import render_portal
 from views.form_kap1 import render_kap1
 from views.form_kap2 import render_kap2
@@ -16,13 +7,14 @@ from views.dashboard_bbm import render_dashboard
 from views.dashboard_tren import render_dashboard_tren
 from views.import_data import render_import_data
 
+# --- KONFIGURASI HALAMAN ---
 st.set_page_config(
     page_title="Dashboard Logistik BBM ADM",
     page_icon="⛽",
     layout="wide"
 )
 
-# --- 2. KONEKSI DATABASE ---
+# --- KONEKSI DATABASE SUPABASE ---
 @st.cache_resource
 def init_connection():
     try:
@@ -31,26 +23,30 @@ def init_connection():
         st.error(f"Gagal terhubung ke database: {e}")
         return None
 
-# Definisi 'conn' di awal agar bisa digunakan oleh modul di bawahnya
 conn = init_connection()
 
-# --- 3. INISIALISASI SESSION STATE (MODE DEVELOPER) ---
+# --- INISIALISASI SESSION STATE ---
 if 'selected_menu' not in st.session_state:
     st.session_state.selected_menu = "Portal Utama"
 
+# ==========================================
+# SIDEBAR: KONTROL LOGIN & NAVIGASI ROLE
+# ==========================================
 st.sidebar.markdown("## 🔐 Autorisasi & Akses")
 selected_role = st.sidebar.selectbox(
     "Pilih Departemen / Role",
     ["Logistik", "Maintenance", "Produksi"],
-    help="Pilih peran Anda untuk menyesuaikan hak akses menu dan form input"
+    help="Pilih peran Anda untuk menyesuaikan hak akses menu dan form input."
 )
 
+# Simpan role ke session state
 st.session_state.role = selected_role
 role = st.session_state.role
 
 st.sidebar.write("---")
 st.sidebar.markdown("### 📌 Navigasi Menu")
 
+# Pembatasan Menu (RBAC Sidebar Menu)
 if role == "Maintenance":
     menu_options = ["Portal Utama", "Form Input KAP 1", "Form Input KAP 2"]
     st.sidebar.info("🛠️ **Maintenance Mode:** Akses terbatas pada input Tangki & Penerimaan.")
