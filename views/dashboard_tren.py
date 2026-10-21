@@ -102,12 +102,27 @@ def render_dashboard_tren(conn):
     elif mode_periode == "Bulanan (1 Bulan)":
         tgl_selesai = tgl_hari_ini
         tgl_mulai = tgl_hari_ini - timedelta(days=29)
-    else:
-        col_d1, col_d2 = st.columns(2)
-        with col_d1:
-            tgl_mulai = st.date_input("📅 Tanggal Mulai", tgl_hari_ini - timedelta(days=7))
-        with col_d2:
-            tgl_selesai = st.date_input("📅 Tanggal Selesai", tgl_hari_ini)
+    elif mode_periode == "Kustom Rentang":
+        st.info("💡 **Panduan:** Buka kalender, klik tanggal mulai, lalu klik tanggal selesai.")
+
+        rentang_tanggal = st.date_input(
+            "📅 Pilih Rentang Tanggal",
+            value=(tgl_hari_ini - timedelta(days=7), tgl_hari_ini),
+            max_value=tgl_hari_ini,
+        )
+
+        if isinstance(rentang_tanggal, tuple):
+            if len(rentang_tanggal) == 2:
+                tgl_mulai, tgl_selesai = rentang_tanggal
+            elif len(rentang_tanggal) == 1:
+                tgl_mulai = rentang_tanggal[0]
+                tgl_selesai = rentang_tanggal[0]
+            else:
+                tgl_mulai = tgl_hari_ini
+                tgl_selesai = tgl_hari_ini
+        else:
+            tgl_mulai = rentang_tanggal
+            tgl_selesai = rentang_tanggal    
     
     st.write("")
 
