@@ -161,8 +161,72 @@ def render_kap1(conn, role="Logistik"):
         else:
             st.info("🔒 Form F5 & Totalisator hanya dapat diakses oleh tim **Maintenance**.")
 
+    # ================= PRE-SUBMIT LIVE VALIDATION (OPSI 3) =================
     st.write("---")
     
+    # Ambil data eksisting tanggal ini untuk kalkulasi real-time
+    ex_isi_prev = 0.0
+    ex_stok_prev = 0.0
+    ex_pakai_prev = 0.0
+    if conn:
+        try:
+            c_check = conn.cursor()
+            c_check.execute("SELECT total_pengisian, total_pemakaian, stok_akhir_level_meter FROM daily_stock_log WHERE tanggal = %s AND id_area = 'KAP-1'", (tgl_input,))
+            row_prev = c_check.fetchone()
+            if row_prev:
+                ex_isi_prev = float(row_prev[0]) if row_prev[0] is not None else 0.0
+                ex_pakai_prev = float(row_prev[1]) if row_prev[1] is not None else 0.0
+                ex_stok_prev = float(row_prev[2]) if row_prev[2] is not None else 0.0
+            c_check.close()
+        except:
+            pass
+
+    # Tentukan komponen perhitungan gabungan (live input + data eksisting jika role parsial)
+    sim_isi = volume_f1 if role in ["Maintenance", "Logistik"] else ex_isi_prev
+    sim_stok = total_storage if (role in ["Maintenance", "Logistik"] and total_storage > 0) else ex_stok_prev
+    sim_reguler = total_volume_reguler if role in ["Produksi", "Logistik"] else (ex_pakai_prev - ex_isi_prev if ex_pakai_prev > 0 else 0.0)
+    sim_f5 = volume_f5 if role in ["Maintenance", "Logistik"] else 0.0
+    sim_pakai = sim_reguler + sim_f5 if (role in ["Produksi", "Logistik"] or sim_f5 > 0) else ex_pakai_prev
+    
+    stok_awal_calc = stok_awal_kemarin if stok_awal_kemarin is not None else 0.0
+    
+    # Hanya tampilkan indikator jika sudah ada inputan fisik atau pemakaian
+    if sim_stok > 0 or sim_pakai > 0 or sim_isi > 0:
+        est_loss = round((stok_awal_calc + sim_isi - sim_pakai) - sim_stok, 2)
+        
+        col_v1, col_v2, col_v3 = st.columns([1, 2, 1])
+        with col_v2:
+            if abs(est_loss) <= 0.01:
+                st.markdown(f"""
+                    <div style="background-color: #E8F5E9; border-left: 6px solid #2E7D32; padding: 12px 18px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 700; color: #1B5E20; font-size: 15px;">🔍 Validasi Pre-Submit: STATUS BALANCE / AMAN</span>
+                            <span style="background: #2E7D32; color: white; padding: 3px 10px; border-radius: 20px; font-weight: bold; font-size: 13px;">Loss: {est_loss:,.1f} L</span>
+                        </div>
+                        <p style="margin: 5px 0 0 0; font-size: 12px; color: #2E7D32;">Stok awal ({stok_awal_calc:,.0f} L) + Masuk ({sim_isi:,.0f} L) - Keluar ({sim_pakai:,.0f} L) = Fisik ({sim_stok:,.0f} L)</p>
+                    </div>
+                """, unsafe_allow_html=True)
+            elif abs(est_loss) > 1000:
+                st.markdown(f"""
+                    <div style="background-color: #FFEBEE; border-left: 6px solid #C62828; padding: 12px 18px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 700; color: #B71C1C; font-size: 15px;">⚠️ PERINGATAN: SELISIH SANGAT BESAR</span>
+                            <span style="background: #C62828; color: white; padding: 3px 10px; border-radius: 20px; font-weight: bold; font-size: 13px;">Loss: {est_loss:,.1f} L</span>
+                        </div>
+                        <p style="margin: 5px 0 0 0; font-size: 12px; color: #B71C1C;">Mohon cek kembali angka meter/level tangki. Pastikan tidak ada kelebihan/kekurangan digit 0.</p>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                    <div style="background-color: #FFF8E1; border-left: 6px solid #F57F17; padding: 12px 18px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 700; color: #E65100; font-size: 15px;">ℹ️ Estimasi Selisih Terdeteksi</span>
+                            <span style="background: #F57F17; color: white; padding: 3px 10px; border-radius: 20px; font-weight: bold; font-size: 13px;">Loss: {est_loss:,.1f} L</span>
+                        </div>
+                        <p style="margin: 5px 0 0 0; font-size: 12px; color: #795548;">Sistem mencatat adanya perbedaan antara buku administrasi dan level fisik tangki.</p>
+                    </div>
+                """, unsafe_allow_html=True)
+
     # ================= STEP 3: DATABASE MERGING & SUBMIT =================
     col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
     with col_b2:
