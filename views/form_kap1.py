@@ -81,6 +81,24 @@ def render_kap1(conn, role="Logistik"):
                 st.write("### Total Kalkulasi")
                 st.metric(label="Total Storage (Liter)", value=f"{total_storage:,.0f}")
                 st.info(f"💡 Info: Nilai Daily Tank otomatis dikali 2")
+
+            st.markdown("### 4. Dispenser Non-Reguler (F5)")
+            with st.container(border=True):
+                f5_total_in = st.number_input("Total Volume (Liter) RnD", min_value=0.0, format="%.0f", key="kap1_f5_total", step=1.0, value=None)
+                volume_f5 = f5_total_in if f5_total_in is not None else 0.0
+                st.info(f"✅ **Volume Non-Reguler:** {volume_f5:,.0f} L")
+                
+            st.markdown("### 5. Totalisator OUT ASSY")
+            with st.container(border=True):
+                tot_out_awal_in = st.number_input("Digit Awal Totalisator", min_value=0.0, format="%.0f", step=1.0, value=None)
+                tot_out_akhir_in = st.number_input("Digit Akhir Totalisator", min_value=0.0, format="%.0f", step=1.0, value=None)
+                tot_out_awal = tot_out_awal_in if tot_out_awal_in is not None else 0.0
+                tot_out_akhir = tot_out_akhir_in if tot_out_akhir_in is not None else 0.0
+                totalisator_out_assy_input = tot_out_akhir - tot_out_awal
+                
+                if totalisator_out_assy_input < 0: st.error(f"❌ **Error:** (Selisih: {totalisator_out_assy_input:,.0f} L)")
+                else: st.info(f"✅ **Selisih Totalisator:** {totalisator_out_assy_input:,.0f} Liter")
+
         else:
             st.info("🔒 Form Penerimaan, Transfer & Tangki hanya dapat diakses oleh tim **Maintenance**.")
 
@@ -139,28 +157,6 @@ def render_kap1(conn, role="Logistik"):
                         else: st.info(f"✅ **Keluar:** {vol_lh_b:,.0f} L")
 
             total_volume_reguler = vol_rh_a + vol_lh_a + vol_rh_b + vol_lh_b
-            
-            st.markdown("### 5. Dispenser Non-Reguler (F5)")
-            with st.container(border=True):
-                f5_total_in = st.number_input("Total Volume (Liter) RnD", min_value=0.0, format="%.0f", key="kap1_f5_total", step=1.0, value=None)
-                volume_f5 = f5_total_in if f5_total_in is not None else 0.0
-                st.info(f"✅ **Volume Non-Reguler:** {volume_f5:,.0f} L")
-                
-            # PENYEMPURNAAN TOTALISATOR GANDA (AWAL & AKHIR)
-            st.markdown("### 6. Totalisator OUT ASSY")
-            with st.container(border=True):
-                tot_out_awal_in = st.number_input("Digit Awal Totalisator", min_value=0.0, format="%.0f", step=1.0, value=None)
-                tot_out_akhir_in = st.number_input("Digit Akhir Totalisator", min_value=0.0, format="%.0f", step=1.0, value=None)
-                
-                tot_out_awal = tot_out_awal_in if tot_out_awal_in is not None else 0.0
-                tot_out_akhir = tot_out_akhir_in if tot_out_akhir_in is not None else 0.0
-                totalisator_out_assy_input = tot_out_akhir - tot_out_awal
-                
-                if totalisator_out_assy_input < 0:
-                    st.error(f"❌ **Error:** Digit akhir lebih kecil! (Selisih: {totalisator_out_assy_input:,.0f} L)")
-                else:
-                    st.info(f"✅ **Selisih Totalisator:** {totalisator_out_assy_input:,.0f} Liter")
-            
             total_pakai = total_volume_reguler + volume_f5
         else:
             st.info("🔒 Form Pengeluaran Dispenser & Totalisator hanya dapat diakses oleh tim **Produksi**.")
@@ -168,12 +164,12 @@ def render_kap1(conn, role="Logistik"):
     st.write("---")
     
     # ================= STEP 3: DATABASE MERGING & SUBMIT =================
+    # ================= STEP 3: DATABASE MERGING & SUBMIT =================
     col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
     with col_b2:
         if st.button("SUBMIT DATA HARIAN KAP-1", use_container_width=True, type="primary", key="kap1_submit"):
-            # Validasi error
-            err_maint = (role in ["Maintenance", "Logistik"]) and (volume_f1 < 0 or volume_fm2 < 0)
-            err_prod = (role in ["Produksi", "Logistik"]) and (vol_rh_a < 0 or vol_lh_a < 0 or vol_rh_b < 0 or vol_lh_b < 0 or totalisator_out_assy_input < 0)
+            err_maint = (role in ["Maintenance", "Logistik"]) and (volume_f1 < 0 or volume_fm2 < 0 or totalisator_out_assy_input < 0)
+            err_prod = (role in ["Produksi", "Logistik"]) and (vol_rh_a < 0 or vol_lh_a < 0 or vol_rh_b < 0 or vol_lh_b < 0)
             
             if err_maint or err_prod:
                 st.error("❌ Terdapat digit akhir yang lebih kecil dari digit awal! Periksa kembali inputan Anda.")
@@ -181,9 +177,9 @@ def render_kap1(conn, role="Logistik"):
                 try:
                     cur = conn.cursor()
 
-                    # Tarik Data Eksisting (8 Parameter)
+                    # Tarik Data Eksisting (Utama)
                     cur.execute("""
-                        SELECT total_pengisian, total_pemakaian, stok_akhir_level_meter, 
+                        SELECT total_pengisian, stok_akhir_level_meter, 
                                tank1_level, tank2_level, daily_tank_level, 
                                total_storage_level, totalisator_out_assy 
                         FROM daily_stock_log WHERE tanggal = %s AND id_area = 'KAP-1'
@@ -191,29 +187,41 @@ def render_kap1(conn, role="Logistik"):
                     ex_data = cur.fetchone()
 
                     ex_isi = ex_data[0] if ex_data and ex_data[0] is not None else 0.0
-                    ex_pakai = ex_data[1] if ex_data and ex_data[1] is not None else 0.0
-                    ex_stok = ex_data[2] if ex_data and ex_data[2] is not None else 0.0
-                    ex_t1 = ex_data[3] if ex_data and ex_data[3] is not None else 0.0
-                    ex_t2 = ex_data[4] if ex_data and ex_data[4] is not None else 0.0
-                    ex_tdaily = ex_data[5] if ex_data and ex_data[5] is not None else 0.0
-                    ex_tstorage = ex_data[6] if ex_data and ex_data[6] is not None else 0.0
-                    ex_tot = ex_data[7] if ex_data and ex_data[7] is not None else 0.0
+                    ex_stok = ex_data[1] if ex_data and ex_data[1] is not None else 0.0
+                    ex_t1 = ex_data[2] if ex_data and ex_data[2] is not None else 0.0
+                    ex_t2 = ex_data[3] if ex_data and ex_data[3] is not None else 0.0
+                    ex_tdaily = ex_data[4] if ex_data and ex_data[4] is not None else 0.0
+                    ex_tstorage = ex_data[5] if ex_data and ex_data[5] is not None else 0.0
+                    ex_tot = ex_data[6] if ex_data and ex_data[6] is not None else 0.0
 
-                    # Merge Data Berdasarkan Role
+                    # Tarik Data Pemakaian Terpisah (Reguler vs Non-Reguler/F5)
+                    cur.execute("SELECT SUM(volume_keluar) FROM log_pengeluaran_dispenser WHERE tanggal = %s AND id_area = 'KAP-1' AND kategori_sap = 'GI Reguler'", (tgl_input,))
+                    ex_reg_data = cur.fetchone()
+                    ex_reguler = ex_reg_data[0] if ex_reg_data and ex_reg_data[0] is not None else 0.0
+
+                    cur.execute("SELECT SUM(volume_keluar) FROM log_pengeluaran_dispenser WHERE tanggal = %s AND id_area = 'KAP-1' AND kategori_sap = 'GI Non-Reguler'", (tgl_input,))
+                    ex_f5_data = cur.fetchone()
+                    ex_f5 = ex_f5_data[0] if ex_f5_data and ex_f5_data[0] is not None else 0.0
+
+                    # Identifikasi Role
                     is_maint = role in ["Maintenance", "Logistik"]
                     is_prod = role in ["Produksi", "Logistik"]
 
+                    # Merge Data Berdasarkan Hak Akses
                     final_isi = volume_f1 if is_maint else ex_isi
                     final_stok = total_storage if is_maint else ex_stok
                     final_t1 = val_tank1 if is_maint else ex_t1
                     final_t2 = val_tank2 if is_maint else ex_t2
                     final_tdaily = daily_tank_actual if is_maint else ex_tdaily
                     final_tstorage = total_storage if is_maint else ex_tstorage
+                    final_tot = totalisator_out_assy_input if is_maint else ex_tot
 
-                    final_pakai = total_pakai if is_prod else ex_pakai
-                    final_tot = totalisator_out_assy_input if is_prod else ex_tot
+                    # Total Pemakaian = Reguler (Milik Produksi) + F5 (Milik Maintenance)
+                    final_reguler = total_volume_reguler if is_prod else ex_reguler
+                    final_f5 = volume_f5 if is_maint else ex_f5
+                    final_pakai = final_reguler + final_f5
 
-                    # Eksekusi Log Detail Maintenance
+                    # Eksekusi Log Maintenance (Tangki, Transfer, F5)
                     if is_maint:
                         if final_isi > 0:
                             cur.execute("""INSERT INTO log_penerimaan_tangki (tanggal, id_area, kategori_sap, fm1_awal, fm1_akhir, volume_terima)
@@ -223,8 +231,12 @@ def render_kap1(conn, role="Logistik"):
                             cur.execute("""INSERT INTO log_transfer_internal (tanggal, id_area, fm2_awal, fm2_akhir, volume_transfer)
                                            VALUES (%s, %s, %s, %s, %s)""",
                                         (tgl_input, 'KAP-1', float(fm2_awal), float(fm2_akhir), float(volume_fm2)))
+                        if volume_f5 > 0:
+                            cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
+                                           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                                        (tgl_input, 'KAP-1', 'GI Non-Reguler', 'F5', 0.0, 0.0, float(final_f5)))
 
-                    # Eksekusi Log Detail Produksi
+                    # Eksekusi Log Produksi (Hanya Dispenser Reguler)
                     if is_prod:
                         data_dispenser = [
                             ('RH (Shift A)', rh_a_awal, rh_a_akhir, vol_rh_a),
@@ -237,17 +249,13 @@ def render_kap1(conn, role="Logistik"):
                                 cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
                                                VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                                             (tgl_input, 'KAP-1', 'GI Reguler', n_pompa, float(aw), float(ak), float(vol)))
-                        if volume_f5 > 0:
-                            cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
-                                           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-                                        (tgl_input, 'KAP-1', 'GI Non-Reguler', 'F5', 0.0, 0.0, float(volume_f5)))
 
                     # Kalkulasi Ulang Loss Gabungan
                     stok_awal_aktual = get_stok_awal(conn, 'KAP-1', tgl_input)
                     loss = round((stok_awal_aktual + final_isi - final_pakai) - final_stok, 2)
                     status_loss = "SELISIH" if abs(loss) > 0.01 else "AMAN"
 
-                    # Simpan ke Master Log (Partial Update)
+                    # Simpan ke Master Log
                     cur.execute("""INSERT INTO daily_stock_log
                                    (tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss, tank1_level, tank2_level, daily_tank_level, total_storage_level, totalisator_out_assy)
                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
