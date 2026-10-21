@@ -48,12 +48,15 @@ st.sidebar.markdown("### 📌 Navigasi Menu")
 
 # Pembatasan Menu (RBAC Sidebar Menu)
 if role == "Maintenance":
-    menu_options = ["Portal Utama", "Form Input KAP 1", "Form Input KAP 2"]
+    # Menghapus "Portal Utama", hanya menyisakan form
+    menu_options = ["Form Input KAP 1", "Form Input KAP 2"]
     st.sidebar.info("🛠️ **Maintenance Mode:** Akses terbatas pada input Tangki & Penerimaan.")
 elif role == "Produksi":
-    menu_options = ["Portal Utama", "Form Input KAP 1", "Form Input KAP 2"]
+    # Menghapus "Portal Utama", hanya menyisakan form
+    menu_options = ["Form Input KAP 1", "Form Input KAP 2"]
     st.sidebar.info("⚙️ **Produksi Mode:** Akses terbatas pada Dispenser & Totalisator.")
 else:  # Logistik (Superadmin / Validator)
+    # Logistik tetap memiliki akses penuh ke semua halaman
     menu_options = [
         "Portal Utama", 
         "Form Input KAP 1", 
@@ -63,14 +66,13 @@ else:  # Logistik (Superadmin / Validator)
         "Import Data Historis"
     ]
     st.sidebar.success("👑 **Logistik Mode:** Akses penuh (Superadmin & Validator).")
-
 # Sinkronisasi pilihan menu di sidebar dengan session state
 if st.session_state.selected_menu not in menu_options:
-    st.session_state.selected_menu = "Portal Utama"
+    st.session_state.selected_menu = menu_options[0]
 
 selected_menu = st.sidebar.radio(
-    "Pilih Menu", 
-    menu_options, 
+    "Pilih Menu",
+    menu_options,
     index=menu_options.index(st.session_state.selected_menu)
 )
 st.session_state.selected_menu = selected_menu
