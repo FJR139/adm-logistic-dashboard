@@ -314,7 +314,8 @@ def render_kap1(conn, role="Logistik"):
                                             (tgl_input, 'KAP-1', 'GI Reguler', n_pompa, float(aw), float(ak), float(vol)))
 
                     # Kalkulasi Ulang Loss Gabungan
-                    stok_awal_aktual = get_stok_awal(conn, 'KAP-1', tgl_input)
+                    stok_awal_val_k1 = get_stok_awal(conn, 'KAP-1', tgl_input)
+                    stok_awal_aktual = float(stok_awal_val_k1) if stok_awal_val_k1 is not None else 0.0
                     loss = round((stok_awal_aktual + final_isi - final_pakai) - final_stok, 2)
                     status_loss = "SELISIH" if abs(loss) > 0.01 else "AMAN"
 

@@ -152,14 +152,14 @@ def render_kap2(conn, role="Logistik"):
                     cur.execute("SELECT total_pengisian, total_pemakaian, stok_akhir_level_meter FROM daily_stock_log WHERE tanggal = %s AND id_area = 'KAP-2'", (tgl_input,))
                     existing_data = cur.fetchone()
                     
-                    ex_pengisian = existing_data[0] if existing_data else 0.0
-                    ex_pemakaian = existing_data[1] if existing_data else 0.0
-                    ex_stok_akhir = existing_data[2] if existing_data else 0.0
+                    ex_pengisian = float(existing_data[0]) if (existing_data and existing_data[0] is not None) else 0.0
+                    ex_pemakaian = float(existing_data[1]) if (existing_data and existing_data[1] is not None) else 0.0
+                    ex_stok_akhir = float(existing_data[2]) if (existing_data and existing_data[2] is not None) else 0.0
 
                     # STEP 3B: MERGING (Penggabungan Data)
-                    final_pengisian = volume_f1_kap2 if role in ["Maintenance", "Logistik"] else ex_pengisian
-                    final_pemakaian = volume_keluar_kap2 if role in ["Produksi", "Logistik"] else ex_pemakaian
-                    final_stok_akhir = pv_tank1_kap2 if role in ["Maintenance", "Logistik"] else ex_stok_akhir
+                    final_pengisian = float(volume_f1_kap2) if role in ["Maintenance", "Logistik"] else ex_pengisian
+                    final_pemakaian = float(volume_keluar_kap2) if role in ["Produksi", "Logistik"] else ex_pemakaian
+                    final_stok_akhir = float(pv_tank1_kap2) if role in ["Maintenance", "Logistik"] else ex_stok_akhir
 
                     if role in ["Maintenance", "Logistik"] and final_pengisian > 0:
                         cur.execute("""INSERT INTO log_penerimaan_tangki (tanggal, id_area, kategori_sap, fm1_awal, fm1_akhir, volume_terima)
@@ -171,7 +171,8 @@ def render_kap2(conn, role="Logistik"):
                                        VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                                     (tgl_input, 'KAP-2', 'GI Reguler', 'Meter Analog LH', float(analog_awal_kap2), float(analog_akhir_kap2), float(final_pemakaian)))
 
-                    stok_awal_aktual_kap2 = get_stok_awal(conn, 'KAP-2', tgl_input)
+                    stok_awal_val = get_stok_awal(conn, 'KAP-2', tgl_input)
+                    stok_awal_aktual_kap2 = float(stok_awal_val) if stok_awal_val is not None else 0.0
                     loss_kap2 = round((stok_awal_aktual_kap2 + final_pengisian - final_pemakaian) - final_stok_akhir, 2)
                     status_loss_kap2 = "SELISIH" if abs(loss_kap2) > 0.01 else "AMAN"
 

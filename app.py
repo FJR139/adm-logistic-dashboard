@@ -79,7 +79,7 @@ st.markdown("""
         div.stButton > button[kind="primary"] {
             background-color: #E3000F !important;
             border-color: #E3000F !important;
-            color: white !important;
+            colo    r: white !important;
             font-weight: 700 !important;
             border-radius: 8px !important;
             padding: 10px 20px !important;
