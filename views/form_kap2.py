@@ -3,22 +3,54 @@ import pandas as pd
 import datetime
 from utils import get_stok_awal
 
-# PERBAIKAN 1: Tambahkan parameter role
-def render_kap2(conn, role="Logistik"):
+# PERBAIKAN 1: Tambahkan parameter role dan mode
+def render_kap2(conn, role="Logistik", mode=None):
     st.markdown("<h3 style='text-align: center; color: #333333;'>Form Input Data Harian - KAP-2</h3>", unsafe_allow_html=True)
     st.markdown(f"<p style='text-align: center; color: #005A9E;'>Masuk sebagai: <b>{role.upper()}</b></p>", unsafe_allow_html=True)
     st.write("---")
 
-    # --- Input Tanggal (untuk backtesting & entry harian) ---
     col_date, spacer = st.columns([3, 5])
     with col_date:
         st.markdown("### 🗓️ Tanggal")
-        tgl_input = st.date_input(
-            "Tanggal",
-            value=datetime.date.today(),
-            max_value=datetime.date.today(),
-            label_visibility="collapsed"
-        )
+        tgl_input = st.date_input("Tanggal", value=datetime.date.today(), max_value=datetime.date.today(), label_visibility="collapsed")
+    st.write("")
+
+    stok_awal_kemarin_kap2 = get_stok_awal(conn, "KAP-2", tgl_input)
+    stok_awal_display = stok_awal_kemarin_kap2 if stok_awal_kemarin_kap2 is not None else 0.0
+
+    # --- INISIALISASI VARIABEL DEFAULT (PENTING AGAR DATABASE TIDAK ERROR) ---
+    volume_f1_kap2 = 0.0; f1_awal_kap2 = 0.0; f1_akhir_kap2 = 0.0 # Akan diisi dari Penerimaan BBM
+    pv_tank1_kap2 = 0.0
+    volume_keluar_kap2 = 0.0; analog_awal_kap2 = 0.0; analog_akhir_kap2 = 0.0
+
+    # ================= STRUKTUR TAB DAILY INPUT =================
+    if mode == "Daily":
+        tab_logistik, tab_produksi = st.tabs(["🧑‍🔧 Tim Logistik", "⚙️ Tim Produksi"])
+        
+        # --- TAB MILIK LOGISTIK ---
+        with tab_logistik:
+            if role in ["Logistik"]:
+                st.markdown("### 1. Level Meter Tangki (Awal Shift)")
+                with st.container(border=True):
+                    st.caption(f"ℹ️ Stok Awal (Level Akhir Kemarin): **{stok_awal_display:,.0f} Liter**")
+                    pv_tank1_in = st.number_input("Tank 1 (PV) Liter", min_value=0.0, format="%.0f", key="kap2_pv1", step=1.0, value=None)
+                    pv_tank1_kap2 = pv_tank1_in if pv_tank1_in is not None else 0.0
+            else:
+                st.warning("🔒 Area ini khusus untuk Tim Logistik.")
+
+        # --- TAB MILIK PRODUKSI ---
+        with tab_produksi:
+            if role in ["Produksi", "Logistik"]:
+                st.markdown("### 2. Dispenser Jalur Produksi")
+                st.info("💡 KAP-2 beroperasi dalam 1 Shift Pagi.")
+                with st.container(border=True):
+                    analog_awal_in = st.number_input("Digit Awal LH (Liter)", min_value=0.0, format="%.0f", key="kap2_f3_a", step=1.0, value=None)
+                    analog_akhir_in = st.number_input("Digit Akhir LH (Liter)", min_value=0.0, format="%.0f", key="kap2_f3_b", step=1.0, value=None)
+                    analog_awal_kap2 = analog_awal_in if analog_awal_in is not None else 0.0
+                    analog_akhir_kap2 = analog_akhir_in if analog_akhir_in is not None else 0.0
+                    volume_keluar_kap2 = analog_akhir_kap2 - analog_awal_kap2
+            else:
+                st.warning("🔒 Area khusus Tim Produksi.")
     st.write("")
 
     stok_awal_kemarin_kap2 = get_stok_awal(conn, "KAP-2", tgl_input)
