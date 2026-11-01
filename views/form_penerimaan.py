@@ -11,7 +11,7 @@ def render_penerimaan(conn, role="Logistik"):
         st.warning("🔒 Halaman ini khusus untuk pencatatan kedatangan BBM oleh Tim Logistik.")
         return
 
-    st.info("🚛 Pencatatan nilai Sebelum (Before) dan Sesudah (After) pembongkaran truk tangki.")
+    st.info("🚛 Pencatatan nilai Sebelum (Before) dan Sesudah (After) pembongkaran truk tangki ke Storage KAP-1.")
     tgl_input = st.date_input("Tanggal Kedatangan", value=datetime.date.today())
     
     # Membungkus semua input dalam satu form agar tersubmit bersamaan
@@ -52,8 +52,58 @@ def render_penerimaan(conn, role="Logistik"):
             vol_in = fm_in_after - fm_in_before
             vol_out = fm_out_after - fm_out_before
             
+            # Hitung total Storage setelah pembongkaran
+            daily_tank_actual_after = daily_after * 2
+            total_storage_after = t1_after + t2_after + daily_tank_actual_after
+            
             if vol_in < 0 or vol_out < 0:
                 st.error("❌ Nilai 'After' tidak boleh lebih kecil dari 'Before'!")
+            elif vol_in == 0:
+                st.warning("⚠️ Volume masuk (Flowmeter IN) masih 0. Pastikan data sudah terisi dengan benar.")
+            elif conn is not None:
+                try:
+                    cur = conn.cursor()
+                    
+                    # 1. Hapus log spesifik tanggal ini (jika ada) untuk mencegah duplikasi saat user submit ulang/revisi
+                    cur.execute("DELETE FROM log_penerimaan_tangki WHERE tanggal = %s AND id_area = 'KAP-1'", (tgl_input,))
+                    
+                    # 2. Catat riwayat Bongkar Muat terbaru
+                    cur.execute("""
+                        INSERT INTO log_penerimaan_tangki 
+                        (tanggal, id_area, kategori_sap, fm1_awal, fm1_akhir, volume_terima)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (tgl_input, 'KAP-1', 'GR', float(fm_in_before), float(fm_in_after), float(vol_in)))
+                    
+                    # 3. Update Master Rekap Harian (Overwrite murni, bukan akumulasi)
+                    cur.execute("""
+                        INSERT INTO daily_stock_log (
+                            tanggal, id_area, total_pengisian, 
+                            tank1_level, tank2_level, daily_tank_level, 
+                            total_storage_level, stok_akhir_level_meter
+                        )
+                        VALUES (%s, 'KAP-1', %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (tanggal, id_area) 
+                        DO UPDATE SET 
+                            total_pengisian = EXCLUDED.total_pengisian,
+                            tank1_level = EXCLUDED.tank1_level,
+                            tank2_level = EXCLUDED.tank2_level,
+                            daily_tank_level = EXCLUDED.daily_tank_level,
+                            total_storage_level = EXCLUDED.total_storage_level,
+                            stok_akhir_level_meter = EXCLUDED.stok_akhir_level_meter;
+                    """, (
+                        tgl_input, float(vol_in), 
+                        float(t1_after), float(t2_after), float(daily_after * 2), 
+                        float(total_storage_after), float(total_storage_after)
+                    ))
+                    
+                    conn.commit()
+                    cur.close()
+                    
+                    st.success(f"✅ Data Kedatangan BBM berhasil diperbarui! Volume Masuk: {vol_in:,.0f} Liter ditetapkan untuk tanggal {tgl_input.strftime('%d %b %Y')}.")
+                    st.toast("Data Bongkar Muat berhasil tersimpan secara Overwrite!", icon="🚛")
+                    
+                except Exception as e:
+                    conn.rollback()
+                    st.error(f"❌ Terjadi kesalahan saat menyimpan ke database: {e}")
             else:
-                st.success(f"✅ Data Penerimaan berhasil dicatat! Total Volume Masuk: {vol_in:,.0f} Liter.")
-                # (Logika database INSERT ke log_penerimaan_tangki akan diletakkan di sini)
+                st.error("Koneksi database terputus.")
