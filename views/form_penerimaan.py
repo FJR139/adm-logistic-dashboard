@@ -6,15 +6,19 @@ def render_penerimaan(conn, role="Logistik"):
     st.markdown(f"<p style='text-align: center; color: #005A9E;'>Masuk sebagai: <b>{role.upper()}</b></p>", unsafe_allow_html=True)
     st.write("---")
 
-    # Kunci akses eksklusif untuk Logistik
     if role not in ["Logistik"]:
         st.warning("🔒 Halaman ini khusus untuk pencatatan kedatangan BBM oleh Tim Logistik.")
         return
 
-    st.info("🚛 Pencatatan nilai Sebelum (Before) dan Sesudah (After) pembongkaran truk tangki ke Storage KAP-1.")
-    tgl_input = st.date_input("Tanggal Kedatangan", value=datetime.date.today())
+    st.info("🚛 Pencatatan nilai Sebelum (Before) dan Sesudah (After) pembongkaran truk tangki.")
     
-    # Membungkus semua input dalam satu form agar tersubmit bersamaan
+    col_tgl, col_lok = st.columns(2)
+    with col_tgl:
+        tgl_input = st.date_input("Tanggal Kedatangan", value=datetime.date.today())
+    with col_lok:
+        # Menambahkan pemilih lokasi agar dinamis
+        lokasi_kap = st.radio("Lokasi Pembongkaran:", ["KAP-1", "KAP-2"], horizontal=True)
+    
     with st.form("form_bongkar_muat"):
         st.markdown("### 1. Pencatatan Flowmeter (Liter)")
         col_fm_in, col_fm_out = st.columns(2)
@@ -28,7 +32,7 @@ def render_penerimaan(conn, role="Logistik"):
             fm_out_before = st.number_input("Before (Awal) OUT", min_value=0.0, format="%.0f", step=1.0)
             fm_out_after = st.number_input("After (Akhir) OUT", min_value=0.0, format="%.0f", step=1.0)
 
-        st.markdown("### 2. Pencatatan Level Tangki (PV)")
+        st.markdown(f"### 2. Pencatatan Level Tangki ({lokasi_kap})")
         col_t1, col_t2, col_daily = st.columns(3)
         with col_t1:
             st.write("**Tangki 1 (T.1)**")
@@ -52,36 +56,35 @@ def render_penerimaan(conn, role="Logistik"):
             vol_in = fm_in_after - fm_in_before
             vol_out = fm_out_after - fm_out_before
             
-            # Hitung total Storage setelah pembongkaran
             daily_tank_actual_after = daily_after * 2
             total_storage_after = t1_after + t2_after + daily_tank_actual_after
             
             if vol_in < 0 or vol_out < 0:
                 st.error("❌ Nilai 'After' tidak boleh lebih kecil dari 'Before'!")
             elif vol_in == 0:
-                st.warning("⚠️ Volume masuk (Flowmeter IN) masih 0. Pastikan data sudah terisi dengan benar.")
+                st.warning("⚠️ Volume masuk (Flowmeter IN) masih 0. Pastikan data sudah terisi.")
             elif conn is not None:
                 try:
                     cur = conn.cursor()
                     
-                    # 1. Hapus log spesifik tanggal ini (jika ada) untuk mencegah duplikasi saat user submit ulang/revisi
-                    cur.execute("DELETE FROM log_penerimaan_tangki WHERE tanggal = %s AND id_area = 'KAP-1'", (tgl_input,))
+                    # 1. Hapus log spesifik tanggal & lokasi ini jika user submit ulang
+                    cur.execute("DELETE FROM log_penerimaan_tangki WHERE tanggal = %s AND id_area = %s", (tgl_input, lokasi_kap))
                     
-                    # 2. Catat riwayat Bongkar Muat terbaru
+                    # 2. Catat riwayat Bongkar Muat (Dinamis sesuai lokasi_kap)
                     cur.execute("""
                         INSERT INTO log_penerimaan_tangki 
                         (tanggal, id_area, kategori_sap, fm1_awal, fm1_akhir, volume_terima)
                         VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (tgl_input, 'KAP-1', 'GR', float(fm_in_before), float(fm_in_after), float(vol_in)))
+                    """, (tgl_input, lokasi_kap, 'GR', float(fm_in_before), float(fm_in_after), float(vol_in)))
                     
-                    # 3. Update Master Rekap Harian (Overwrite murni, bukan akumulasi)
+                    # 3. Update Master Rekap Harian (Overwrite murni)
                     cur.execute("""
                         INSERT INTO daily_stock_log (
                             tanggal, id_area, total_pengisian, 
                             tank1_level, tank2_level, daily_tank_level, 
                             total_storage_level, stok_akhir_level_meter
                         )
-                        VALUES (%s, 'KAP-1', %s, %s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (tanggal, id_area) 
                         DO UPDATE SET 
                             total_pengisian = EXCLUDED.total_pengisian,
@@ -91,7 +94,7 @@ def render_penerimaan(conn, role="Logistik"):
                             total_storage_level = EXCLUDED.total_storage_level,
                             stok_akhir_level_meter = EXCLUDED.stok_akhir_level_meter;
                     """, (
-                        tgl_input, float(vol_in), 
+                        tgl_input, lokasi_kap, float(vol_in), 
                         float(t1_after), float(t2_after), float(daily_after * 2), 
                         float(total_storage_after), float(total_storage_after)
                     ))
@@ -99,8 +102,8 @@ def render_penerimaan(conn, role="Logistik"):
                     conn.commit()
                     cur.close()
                     
-                    st.success(f"✅ Data Kedatangan BBM berhasil diperbarui! Volume Masuk: {vol_in:,.0f} Liter ditetapkan untuk tanggal {tgl_input.strftime('%d %b %Y')}.")
-                    st.toast("Data Bongkar Muat berhasil tersimpan secara Overwrite!", icon="🚛")
+                    st.success(f"✅ Data Kedatangan BBM berhasil diperbarui! Volume Masuk: {vol_in:,.0f} Liter ditetapkan untuk {lokasi_kap} pada {tgl_input.strftime('%d %b %Y')}.")
+                    st.toast("Data Bongkar Muat berhasil tersimpan!", icon="🚛")
                     
                 except Exception as e:
                     conn.rollback()

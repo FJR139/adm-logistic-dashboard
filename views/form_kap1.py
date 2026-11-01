@@ -188,7 +188,7 @@ def render_kap1(conn, role="Logistik", mode=None):
                     is_maint = role in ["Maintenance", "Logistik"]
                     is_prod = role in ["Produksi", "Logistik"]
 
-                    final_isi = volume_f1 if is_maint else ex_isi
+                    final_isi = ex_isi
                     final_stok = total_storage if is_maint else ex_stok
                     final_t1 = val_tank1 if is_maint else ex_t1
                     final_t2 = val_tank2 if is_maint else ex_t2

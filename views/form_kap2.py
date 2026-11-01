@@ -102,7 +102,7 @@ def render_kap2(conn, role="Logistik", mode=None):
                     ex_pemakaian = float(existing_data[1]) if (existing_data and existing_data[1] is not None) else 0.0
                     ex_stok_akhir = float(existing_data[2]) if (existing_data and existing_data[2] is not None) else 0.0
 
-                    final_pengisian = float(volume_f1_kap2) if role in ["Maintenance", "Logistik"] else ex_pengisian
+                    final_pengisian = ex_pengisian
                     final_pemakaian = float(volume_keluar_kap2) if role in ["Produksi", "Logistik"] else ex_pemakaian
                     final_stok_akhir = float(pv_tank1_kap2) if role in ["Maintenance", "Logistik"] else ex_stok_akhir
 
