@@ -141,25 +141,26 @@ st.sidebar.write("---")
 st.sidebar.markdown("### 📌 Navigasi Menu")
 
 # Pembatasan Menu (RBAC Sidebar Menu)
+# Pembatasan Menu (RBAC Sidebar Menu)
 if role == "Maintenance":
-    # Menghapus "Portal Utama", hanya menyisakan form
-    menu_options = ["Form Input KAP 1", "Form Input KAP 2"]
-    st.sidebar.info("🛠️ **Maintenance Mode:** Akses terbatas pada input Tangki & Penerimaan.")
+    menu_options = ["Daily Input KAP 1", "Daily Input KAP 2"]
+    st.sidebar.info("🛠️ **Maintenance Mode:** Akses terbatas pada input harian.")
 elif role == "Produksi":
-    # Menghapus "Portal Utama", hanya menyisakan form
-    menu_options = ["Form Input KAP 1", "Form Input KAP 2"]
-    st.sidebar.info("⚙️ **Produksi Mode:** Akses terbatas pada Dispenser & Totalisator.")
+    menu_options = ["Daily Input KAP 1", "Daily Input KAP 2"]
+    st.sidebar.info("⚙️ **Produksi Mode:** Akses terbatas pada input harian produksi.")
 else:  # Logistik (Superadmin / Validator)
-    # Logistik tetap memiliki akses penuh ke semua halaman
+    # Logistik mendapat tambahan menu Penerimaan BBM
     menu_options = [
         "Portal Utama", 
-        "Form Input KAP 1", 
-        "Form Input KAP 2", 
+        "Daily Input KAP 1", 
+        "Daily Input KAP 2",
+        "Penerimaan BBM",
         "Dashboard Monitoring", 
         "Dashboard Analisis Tren", 
         "Import Data Historis"
     ]
     st.sidebar.success("👑 **Logistik Mode:** Akses penuh (Superadmin & Validator).")
+
 # Sinkronisasi pilihan menu di sidebar dengan session state
 if st.session_state.selected_menu not in menu_options:
     st.session_state.selected_menu = menu_options[0]
@@ -180,10 +181,15 @@ st.sidebar.caption("PT Astra Daihatsu Motor (ADM) © 2026")
 if conn:
     if selected_menu == "Portal Utama":
         render_portal()
-    elif selected_menu == "Form Input KAP 1":
-        render_kap1(conn, role=role)  # Mengirim parameter role ke form KAP-1
-    elif selected_menu == "Form Input KAP 2":
-        render_kap2(conn, role=role)  # Mengirim parameter role ke form KAP-2
+    elif selected_menu == "Daily Input KAP 1":
+        # Menambahkan parameter mode="Daily" agar file form_kap1 bisa menyesuaikan tampilan
+        render_kap1(conn, role=role, mode="Daily") 
+    elif selected_menu == "Daily Input KAP 2":
+        render_kap2(conn, role=role, mode="Daily")
+    elif selected_menu == "Penerimaan BBM":
+        # Placeholder sementara sebelum kita membuat views/form_penerimaan.py
+        st.header("🚛 Form Penerimaan BBM (Bongkar Muat)")
+        st.info("Area ini akan diisi dengan form pencatatan Before-After kedatangan truk tangki.")
     elif selected_menu == "Dashboard Monitoring":
         render_dashboard(conn)
     elif selected_menu == "Dashboard Analisis Tren":
