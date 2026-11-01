@@ -8,7 +8,7 @@ from views.form_kap2 import render_kap2
 from views.dashboard_bbm import render_dashboard
 from views.dashboard_tren import render_dashboard_tren
 from views.import_data import render_import_data
-
+from views.form_penerimaan import render_penerimaan
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(
     page_title="Dashboard Logistik BBM ADM",
@@ -175,21 +175,17 @@ st.session_state.selected_menu = selected_menu
 st.sidebar.write("---")
 st.sidebar.caption("PT Astra Daihatsu Motor (ADM) © 2026")
 
-# ==========================================
 # ROUTING HALAMAN UTAMA
 # ==========================================
 if conn:
     if selected_menu == "Portal Utama":
         render_portal()
     elif selected_menu == "Daily Input KAP 1":
-        # Menambahkan parameter mode="Daily" agar file form_kap1 bisa menyesuaikan tampilan
         render_kap1(conn, role=role, mode="Daily") 
     elif selected_menu == "Daily Input KAP 2":
         render_kap2(conn, role=role, mode="Daily")
     elif selected_menu == "Penerimaan BBM":
-        # Placeholder sementara sebelum kita membuat views/form_penerimaan.py
-        st.header("🚛 Form Penerimaan BBM (Bongkar Muat)")
-        st.info("Area ini akan diisi dengan form pencatatan Before-After kedatangan truk tangki.")
+        render_penerimaan(conn, role=role)
     elif selected_menu == "Dashboard Monitoring":
         render_dashboard(conn)
     elif selected_menu == "Dashboard Analisis Tren":
