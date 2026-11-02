@@ -21,12 +21,16 @@ def render_penerimaan(conn, role="Logistik"):
     with st.form("form_bongkar_muat"):
         st.markdown("### 1. Pencatatan Flowmeter (Liter)")
         
-        st.write("**Flowmeter IN (Penerimaan)**")
-        col_in_awal, col_in_akhir = st.columns(2)
-        with col_in_awal:
+        col_in, col_out = st.columns(2)
+        with col_in:
+            st.write("**Flowmeter IN (Penerimaan)**")
             fm_in_before = st.number_input("Before (Awal) IN", min_value=0.0, format="%.0f", step=1.0)
-        with col_in_akhir:
             fm_in_after = st.number_input("After (Akhir) IN", min_value=0.0, format="%.0f", step=1.0)
+            
+        with col_out:
+            st.write("**Flowmeter OUT**")
+            fm_out_before = st.number_input("Before (Awal) OUT", min_value=0.0, format="%.0f", step=1.0)
+            fm_out_after = st.number_input("After (Akhir) OUT", min_value=0.0, format="%.0f", step=1.0)
 
         st.markdown(f"### 2. Pencatatan Level Tangki ({lokasi_kap})")
         col_t1, col_t2, col_daily = st.columns(3)
@@ -42,7 +46,7 @@ def render_penerimaan(conn, role="Logistik"):
 
         with col_daily:
             st.write("**Daily Tank**")
-            st.info("💡 Input akan otomatis dikali 2 saat disimpan.")
+            st.info("💡 Input otomatis dikali 2 saat disimpan.")
             daily_before = st.number_input("Daily Before (Input Asli)", min_value=0.0, format="%.0f", step=1.0)
             daily_after = st.number_input("Daily After (Input Asli)", min_value=0.0, format="%.0f", step=1.0)
 
@@ -51,16 +55,18 @@ def render_penerimaan(conn, role="Logistik"):
         
         if submitted:
             vol_in = fm_in_after - fm_in_before
+            vol_out = fm_out_after - fm_out_before
             
-            # Perkalian otomatis (x2) untuk Daily Tank diaplikasikan di sini
+            # Perkalian otomatis (x2) untuk Daily Tank
             daily_tank_actual_after = daily_after * 2
             total_storage_after = t1_after + t2_after + daily_tank_actual_after
             
-            if vol_in < 0:
+            if vol_in < 0 or vol_out < 0:
                 st.error("❌ Nilai 'After' tidak boleh lebih kecil dari 'Before' pada Flowmeter!")
             elif vol_in == 0:
                 st.warning("⚠️ Volume masuk (Flowmeter IN) masih 0. Pastikan data sudah terisi.")
             elif conn is not None:
+                # ... (lanjutkan eksekusi kueri database Anda) ...
                 try:
                     cur = conn.cursor()
                     

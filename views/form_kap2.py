@@ -19,7 +19,8 @@ def render_kap2(conn, role="Logistik", mode=None):
 
     # --- INISIALISASI VARIABEL DEFAULT (PENTING AGAR DATABASE TIDAK ERROR) ---
     volume_f1_kap2 = 0.0; f1_awal_kap2 = 0.0; f1_akhir_kap2 = 0.0 
-    pv_tank1_kap2 = 0.0
+    pv_tank1_kap2 = 0.0; pv_tank2_kap2 = 0.0; pv_daily_kap2 = 0.0
+    total_stok_akhir_kap2 = 0.0
     volume_keluar_kap2 = 0.0; analog_awal_kap2 = 0.0; analog_akhir_kap2 = 0.0
 
     # ================= STRUKTUR TAB DAILY INPUT =================
@@ -28,14 +29,35 @@ def render_kap2(conn, role="Logistik", mode=None):
         
         # --- TAB MILIK LOGISTIK ---
         with tab_logistik:
-            if role in ["Logistik"]:
-                st.markdown("### 1. Level Meter Tangki (Awal Shift)")
+            if role in ["Logistik", "Maintenance"]:
+                st.markdown("### 1. Pencatatan Flowmeter OUT (Transfer BBM)")
+                with st.container(border=True):
+                    col_f1_awal, col_f1_akhir = st.columns(2)
+                    with col_f1_awal:
+                        f1_awal_in = st.number_input("Flowmeter Awal (Liter)", min_value=0.0, format="%.0f", key="kap2_f1_a", step=1.0, value=None)
+                    with col_f1_akhir:
+                        f1_akhir_in = st.number_input("Flowmeter Akhir (Liter)", min_value=0.0, format="%.0f", key="kap2_f1_b", step=1.0, value=None)
+                    f1_awal_kap2 = f1_awal_in if f1_awal_in is not None else 0.0
+                    f1_akhir_kap2 = f1_akhir_in if f1_akhir_in is not None else 0.0
+                    volume_f1_kap2 = f1_akhir_kap2 - f1_awal_kap2
+
+                st.markdown("### 2. Level Meter Tangki (Akhir Shift)")
                 with st.container(border=True):
                     st.caption(f"ℹ️ Stok Awal (Level Akhir Kemarin): **{stok_awal_display:,.0f} Liter**")
-                    pv_tank1_in = st.number_input("Tank 1 (PV) Liter", min_value=0.0, format="%.0f", key="kap2_pv1", step=1.0, value=None)
-                    pv_tank1_kap2 = pv_tank1_in if pv_tank1_in is not None else 0.0
+                    col_t1, col_t2, col_dt = st.columns(3)
+                    with col_t1:
+                        pv_tank1_in = st.number_input("Tank 1 (PV)", min_value=0.0, format="%.0f", key="kap2_pv1", step=1.0, value=None)
+                        pv_tank1_kap2 = pv_tank1_in if pv_tank1_in is not None else 0.0
+                    with col_t2:
+                        pv_tank2_in = st.number_input("Tank 2 (PV)", min_value=0.0, format="%.0f", key="kap2_pv2", step=1.0, value=None)
+                        pv_tank2_kap2 = pv_tank2_in if pv_tank2_in is not None else 0.0
+                    with col_dt:
+                        pv_daily_in = st.number_input("Daily Tank (PV)", min_value=0.0, format="%.0f", key="kap2_pv_dt", step=1.0, value=None)
+                        pv_daily_kap2 = pv_daily_in if pv_daily_in is not None else 0.0
+                    
+                    total_stok_akhir_kap2 = pv_tank1_kap2 + pv_tank2_kap2 + pv_daily_kap2
             else:
-                st.warning("🔒 Area ini khusus untuk Tim Logistik.")
+                st.warning("🔒 Area ini khusus untuk Tim Logistik & Maintenance.")
 
         # --- TAB MILIK PRODUKSI ---
         with tab_produksi:
@@ -85,7 +107,8 @@ def render_kap2(conn, role="Logistik", mode=None):
 
                     final_pengisian = ex_pengisian
                     final_pemakaian = float(volume_keluar_kap2) if role in ["Produksi", "Logistik"] else ex_pemakaian
-                    final_stok_akhir = float(pv_tank1_kap2) if role in ["Maintenance", "Logistik"] else ex_stok_akhir
+                    # Ubah di bagian STEP 3: DATABASE MERGING & SUBMIT
+                    final_stok_akhir = float(total_stok_akhir_kap2) if role in ["Maintenance", "Logistik"] else ex_stok_akhir
 
                     if role in ["Maintenance", "Logistik"] and final_pengisian > 0:
                         cur.execute("""INSERT INTO log_penerimaan_tangki (tanggal, id_area, kategori_sap, fm1_awal, fm1_akhir, volume_terima)
