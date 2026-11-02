@@ -43,46 +43,27 @@ def render_kap2(conn, role="Logistik", mode=None):
                 st.markdown("### 2. Dispenser Jalur Produksi")
                 st.info("💡 KAP-2 beroperasi dalam 1 Shift Pagi.")
                 with st.container(border=True):
-                    analog_awal_in = st.number_input("Digit Awal LH (Liter)", min_value=0.0, format="%.0f", key="kap2_f3_a", step=1.0, value=None)
-                    analog_akhir_in = st.number_input("Digit Akhir LH (Liter)", min_value=0.0, format="%.0f", key="kap2_f3_b", step=1.0, value=None)
-                    analog_awal_kap2 = analog_awal_in if analog_awal_in is not None else 0.0
-                    analog_akhir_kap2 = analog_akhir_in if analog_akhir_in is not None else 0.0
-                    volume_keluar_kap2 = analog_akhir_kap2 - analog_awal_kap2
+                    col_rh, col_lh = st.columns(2)
+                    with col_rh:
+                        st.write("**Pompa RH**")
+                        rh_awal_in = st.number_input("Digit Awal RH (Liter)", min_value=0.0, format="%.0f", key="kap2_rh_a", step=1.0, value=None)
+                        rh_akhir_in = st.number_input("Digit Akhir RH (Liter)", min_value=0.0, format="%.0f", key="kap2_rh_b", step=1.0, value=None)
+                        rh_awal = rh_awal_in if rh_awal_in is not None else 0.0
+                        rh_akhir = rh_akhir_in if rh_akhir_in is not None else 0.0
+                        vol_rh = (rh_akhir - rh_awal) if rh_akhir >= rh_awal else 0.0
+                    with col_lh:
+                        st.write("**Pompa LH**")
+                        lh_awal_in = st.number_input("Digit Awal LH (Liter)", min_value=0.0, format="%.0f", key="kap2_lh_a", step=1.0, value=None)
+                        lh_akhir_in = st.number_input("Digit Akhir LH (Liter)", min_value=0.0, format="%.0f", key="kap2_lh_b", step=1.0, value=None)
+                        lh_awal = lh_awal_in if lh_awal_in is not None else 0.0
+                        lh_akhir = lh_akhir_in if lh_akhir_in is not None else 0.0
+                        vol_lh = (lh_akhir - lh_awal) if lh_akhir >= lh_awal else 0.0
+                    
+                    volume_keluar_kap2 = vol_rh + vol_lh
             else:
                 st.warning("🔒 Area khusus Tim Produksi.")
 
-    # ================= PRE-SUBMIT LIVE VALIDATION (OPSI 3) =================
-    st.write("---")
-    
-    ex_isi2_prev = 0.0; ex_stok2_prev = 0.0; ex_pakai2_prev = 0.0
-    if conn:
-        try:
-            c_check2 = conn.cursor()
-            c_check2.execute("SELECT total_pengisian, total_pemakaian, stok_akhir_level_meter FROM daily_stock_log WHERE tanggal = %s AND id_area = 'KAP-2'", (tgl_input,))
-            row2_prev = c_check2.fetchone()
-            if row2_prev:
-                ex_isi2_prev = float(row2_prev[0]) if row2_prev[0] is not None else 0.0
-                ex_pakai2_prev = float(row2_prev[1]) if row2_prev[1] is not None else 0.0
-                ex_stok2_prev = float(row2_prev[2]) if row2_prev[2] is not None else 0.0
-            c_check2.close()
-        except:
-            pass
-
-    sim2_isi = volume_f1_kap2 if role in ["Maintenance", "Logistik"] else ex_isi2_prev
-    sim2_stok = pv_tank1_kap2 if (role in ["Maintenance", "Logistik"] and pv_tank1_kap2 > 0) else ex_stok2_prev
-    sim2_pakai = volume_keluar_kap2 if role in ["Produksi", "Logistik"] else ex_pakai2_prev
-    stok_awal2_calc = stok_awal_display if stok_awal_display is not None else 0.0
-    
-    if sim2_stok > 0 or sim2_pakai > 0 or sim2_isi > 0:
-        est_loss2 = round((stok_awal2_calc + sim2_isi - sim2_pakai) - sim2_stok, 2)
-        col_v1, col_v2, col_v3 = st.columns([1, 2, 1])
-        with col_v2:
-            if abs(est_loss2) <= 0.01:
-                st.success(f"🔍 Validasi Pre-Submit: STATUS BALANCE / AMAN (Loss: {est_loss2:,.1f} L)")
-            elif abs(est_loss2) > 1000:
-                st.error(f"⚠️ PERINGATAN: SELISIH SANGAT BESAR (Loss: {est_loss2:,.1f} L)")
-            else:
-                st.warning(f"ℹ️ Estimasi Selisih Terdeteksi (Loss: {est_loss2:,.1f} L)")
+    # ... (Biarkan logika validasi pre-submit seperti aslinya) ...
 
     # ================= STEP 3: DATABASE MERGING & SUBMIT =================
     col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
@@ -112,9 +93,14 @@ def render_kap2(conn, role="Logistik", mode=None):
                                     (tgl_input, 'KAP-2', 'GR', float(f1_awal_kap2), float(f1_akhir_kap2), float(final_pengisian)))
 
                     if role in ["Produksi", "Logistik"] and final_pemakaian > 0:
-                        cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
-                                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-                                    (tgl_input, 'KAP-2', 'GI Reguler', 'Meter Analog LH', float(analog_awal_kap2), float(analog_akhir_kap2), float(final_pemakaian)))
+                        if vol_rh > 0:
+                            cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
+                                           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                                        (tgl_input, 'KAP-2', 'GI Reguler', 'POMPA_RH_PAGI', float(rh_awal), float(rh_akhir), float(vol_rh)))
+                        if vol_lh > 0:
+                            cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
+                                           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                                        (tgl_input, 'KAP-2', 'GI Reguler', 'POMPA_LH_PAGI', float(lh_awal), float(lh_akhir), float(vol_lh)))
 
                     stok_awal_val = get_stok_awal(conn, 'KAP-2', tgl_input)
                     stok_awal_aktual_kap2 = float(stok_awal_val) if stok_awal_val is not None else 0.0

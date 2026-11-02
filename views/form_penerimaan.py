@@ -16,21 +16,17 @@ def render_penerimaan(conn, role="Logistik"):
     with col_tgl:
         tgl_input = st.date_input("Tanggal Kedatangan", value=datetime.date.today())
     with col_lok:
-        # Menambahkan pemilih lokasi agar dinamis
         lokasi_kap = st.radio("Lokasi Pembongkaran:", ["KAP-1", "KAP-2"], horizontal=True)
     
     with st.form("form_bongkar_muat"):
         st.markdown("### 1. Pencatatan Flowmeter (Liter)")
-        col_fm_in, col_fm_out = st.columns(2)
-        with col_fm_in:
-            st.write("**Flowmeter IN (Penerimaan)**")
-            fm_in_before = st.number_input("Before (Awal) IN", min_value=0.0, format="%.0f", step=1.0)
-            fm_in_after = st.number_input("After (Akhir) IN", min_value=0.0, format="%.0f", step=1.0)
         
-        with col_fm_out:
-            st.write("**Flowmeter OUT**")
-            fm_out_before = st.number_input("Before (Awal) OUT", min_value=0.0, format="%.0f", step=1.0)
-            fm_out_after = st.number_input("After (Akhir) OUT", min_value=0.0, format="%.0f", step=1.0)
+        st.write("**Flowmeter IN (Penerimaan)**")
+        col_in_awal, col_in_akhir = st.columns(2)
+        with col_in_awal:
+            fm_in_before = st.number_input("Before (Awal) IN", min_value=0.0, format="%.0f", step=1.0)
+        with col_in_akhir:
+            fm_in_after = st.number_input("After (Akhir) IN", min_value=0.0, format="%.0f", step=1.0)
 
         st.markdown(f"### 2. Pencatatan Level Tangki ({lokasi_kap})")
         col_t1, col_t2, col_daily = st.columns(3)
@@ -46,38 +42,36 @@ def render_penerimaan(conn, role="Logistik"):
 
         with col_daily:
             st.write("**Daily Tank**")
-            daily_before = st.number_input("Daily Before", min_value=0.0, format="%.0f", step=1.0)
-            daily_after = st.number_input("Daily After", min_value=0.0, format="%.0f", step=1.0)
+            st.info("💡 Input akan otomatis dikali 2 saat disimpan.")
+            daily_before = st.number_input("Daily Before (Input Asli)", min_value=0.0, format="%.0f", step=1.0)
+            daily_after = st.number_input("Daily After (Input Asli)", min_value=0.0, format="%.0f", step=1.0)
 
         st.write("---")
         submitted = st.form_submit_button("Simpan Data Penerimaan BBM", type="primary", use_container_width=True)
         
         if submitted:
             vol_in = fm_in_after - fm_in_before
-            vol_out = fm_out_after - fm_out_before
             
+            # Perkalian otomatis (x2) untuk Daily Tank diaplikasikan di sini
             daily_tank_actual_after = daily_after * 2
             total_storage_after = t1_after + t2_after + daily_tank_actual_after
             
-            if vol_in < 0 or vol_out < 0:
-                st.error("❌ Nilai 'After' tidak boleh lebih kecil dari 'Before'!")
+            if vol_in < 0:
+                st.error("❌ Nilai 'After' tidak boleh lebih kecil dari 'Before' pada Flowmeter!")
             elif vol_in == 0:
                 st.warning("⚠️ Volume masuk (Flowmeter IN) masih 0. Pastikan data sudah terisi.")
             elif conn is not None:
                 try:
                     cur = conn.cursor()
                     
-                    # 1. Hapus log spesifik tanggal & lokasi ini jika user submit ulang
                     cur.execute("DELETE FROM log_penerimaan_tangki WHERE tanggal = %s AND id_area = %s", (tgl_input, lokasi_kap))
                     
-                    # 2. Catat riwayat Bongkar Muat (Dinamis sesuai lokasi_kap)
                     cur.execute("""
                         INSERT INTO log_penerimaan_tangki 
                         (tanggal, id_area, kategori_sap, fm1_awal, fm1_akhir, volume_terima)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (tgl_input, lokasi_kap, 'GR', float(fm_in_before), float(fm_in_after), float(vol_in)))
                     
-                    # 3. Update Master Rekap Harian (Overwrite murni)
                     cur.execute("""
                         INSERT INTO daily_stock_log (
                             tanggal, id_area, total_pengisian, 
@@ -95,7 +89,7 @@ def render_penerimaan(conn, role="Logistik"):
                             stok_akhir_level_meter = EXCLUDED.stok_akhir_level_meter;
                     """, (
                         tgl_input, lokasi_kap, float(vol_in), 
-                        float(t1_after), float(t2_after), float(daily_after * 2), 
+                        float(t1_after), float(t2_after), float(daily_tank_actual_after), 
                         float(total_storage_after), float(total_storage_after)
                     ))
                     
