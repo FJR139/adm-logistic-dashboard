@@ -57,8 +57,8 @@ def render_kap1(conn, role="Logistik", mode=None):
                         volume_f5 = f5_total_in if f5_total_in is not None else 0.0
                 with col_tot:
                     with st.container(border=True):
-                        tot_out_awal_in = st.number_input("Awal Totalisator", min_value=0.0, format="%.0f", step=1.0, value=None)
-                        tot_out_akhir_in = st.number_input("Akhir Totalisator", min_value=0.0, format="%.0f", step=1.0, value=None)
+                        tot_out_awal_in = st.number_input("Flowmeter Out Awal", min_value=0.0, format="%.0f", step=1.0, value=None)
+                        tot_out_akhir_in = st.number_input("Flowmeter Out Akhir", min_value=0.0, format="%.0f", step=1.0, value=None)
                         tot_out_awal = tot_out_awal_in if tot_out_awal_in is not None else 0.0
                         tot_out_akhir = tot_out_akhir_in if tot_out_akhir_in is not None else 0.0
                         totalisator_out_assy_input = tot_out_akhir - tot_out_awal
