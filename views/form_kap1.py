@@ -49,7 +49,7 @@ def render_kap1(conn, role="Logistik", mode=None):
                 with col_t2:
                     st.info(f"💡 Info: Nilai Daily Tank otomatis dikali 2\n\n**Total Storage:** {total_storage:,.0f} Liter")
 
-                st.markdown("### 2. Dispenser Non-Reguler (R&D) & Totalisator")
+                st.markdown("### 2. Dispenser Non-Reguler (R&D) & Flowmeter")
                 col_f5, col_tot = st.columns(2)
                 with col_f5:
                     with st.container(border=True):
