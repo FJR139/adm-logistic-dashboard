@@ -53,7 +53,7 @@ def render_kap1(conn, role="Logistik", mode=None):
                 col_f5, col_tot = st.columns(2)
                 with col_f5:
                     with st.container(border=True):
-                        f5_total_in = st.number_input("Total Volume RnD (F5)", min_value=0.0, format="%.0f", key="kap1_f5", step=1.0, value=None)
+                        f5_total_in = st.number_input("Flowmeter Liter RnD (F5)", min_value=0.0, format="%.0f", key="kap1_f5", step=1.0, value=None)
                         volume_f5 = f5_total_in if f5_total_in is not None else 0.0
                 with col_tot:
                     with st.container(border=True):
