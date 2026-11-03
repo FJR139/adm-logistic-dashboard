@@ -18,47 +18,60 @@ def render_penerimaan(conn, role="Logistik"):
     with col_lok:
         lokasi_kap = st.radio("Lokasi Pembongkaran:", ["KAP-1", "KAP-2"], horizontal=True)
     
-    # KELUARKAN VARIABEL DARI FORM UNTUK VALIDASI REAL-TIME
+    # TAMBAHAN VALUE=NONE AGAR KOTAK INPUT KOSONG (LEBIH MUDAH DIKETIK)
     st.markdown("### 1. Pencatatan Flowmeter (Liter)")
     with st.container(border=True):
         col_in, col_out = st.columns(2)
         with col_in:
             st.write("**Flowmeter IN (Penerimaan)**")
-            fm_in_before = st.number_input("Before (Awal) IN", min_value=0.0, format="%.0f", step=1.0, key="fm_in_b")
-            fm_in_after = st.number_input("After (Akhir) IN", min_value=0.0, format="%.0f", step=1.0, key="fm_in_a")
+            fm_in_before = st.number_input("Before (Awal) IN", min_value=0.0, format="%.0f", step=1.0, value=None, key="fm_in_b")
+            fm_in_after = st.number_input("After (Akhir) IN", min_value=0.0, format="%.0f", step=1.0, value=None, key="fm_in_a")
             
         with col_out:
             st.write("**Flowmeter OUT**")
-            fm_out_before = st.number_input("Before (Awal) OUT", min_value=0.0, format="%.0f", step=1.0, key="fm_out_b")
-            fm_out_after = st.number_input("After (Akhir) OUT", min_value=0.0, format="%.0f", step=1.0, key="fm_out_a")
+            fm_out_before = st.number_input("Before (Awal) OUT", min_value=0.0, format="%.0f", step=1.0, value=None, key="fm_out_b")
+            fm_out_after = st.number_input("After (Akhir) OUT", min_value=0.0, format="%.0f", step=1.0, value=None, key="fm_out_a")
 
     st.markdown(f"### 2. Pencatatan Level Tangki ({lokasi_kap})")
     with st.container(border=True):
         col_t1, col_t2, col_daily = st.columns(3)
         with col_t1:
             st.write("**Tangki 1 (T.1)**")
-            t1_before = st.number_input("T.1 Before", min_value=0.0, format="%.0f", step=1.0, key="t1_b")
-            t1_after = st.number_input("T.1 After", min_value=0.0, format="%.0f", step=1.0, key="t1_a")
+            t1_before = st.number_input("T.1 Before", min_value=0.0, format="%.0f", step=1.0, value=None, key="t1_b")
+            t1_after = st.number_input("T.1 After", min_value=0.0, format="%.0f", step=1.0, value=None, key="t1_a")
         
         with col_t2:
             st.write("**Tangki 2 (T.2)**")
-            t2_before = st.number_input("T.2 Before", min_value=0.0, format="%.0f", step=1.0, key="t2_b")
-            t2_after = st.number_input("T.2 After", min_value=0.0, format="%.0f", step=1.0, key="t2_a")
+            t2_before = st.number_input("T.2 Before", min_value=0.0, format="%.0f", step=1.0, value=None, key="t2_b")
+            t2_after = st.number_input("T.2 After", min_value=0.0, format="%.0f", step=1.0, value=None, key="t2_a")
 
         with col_daily:
             st.write("**Daily Tank**")
             st.info("💡 Input otomatis dikali 2")
-            daily_before = st.number_input("Daily Before (Input Asli)", min_value=0.0, format="%.0f", step=1.0, key="dt_b")
-            daily_after = st.number_input("Daily After (Input Asli)", min_value=0.0, format="%.0f", step=1.0, key="dt_a")
+            daily_before = st.number_input("Daily Before (Input Asli)", min_value=0.0, format="%.0f", step=1.0, value=None, key="dt_b")
+            daily_after = st.number_input("Daily After (Input Asli)", min_value=0.0, format="%.0f", step=1.0, value=None, key="dt_a")
 
-    # ================= INDIKATOR PRA-SIMPAN (LIVE VALIDATION) =================
-    vol_in = (fm_in_after - fm_in_before) if (fm_in_after and fm_in_before) else 0.0
-    vol_out = (fm_out_after - fm_out_before) if (fm_out_after and fm_out_before) else 0.0
+    # ================= FILTER NILAI KOSONG & INDIKATOR PRA-SIMPAN =================
+    # Jika kotak input masih kosong (None), otomatis ubah jadi 0.0 untuk hitungan matematis
+    val_fm_in_b = fm_in_before if fm_in_before is not None else 0.0
+    val_fm_in_a = fm_in_after if fm_in_after is not None else 0.0
+    val_fm_out_b = fm_out_before if fm_out_before is not None else 0.0
+    val_fm_out_a = fm_out_after if fm_out_after is not None else 0.0
     
-    # Hitung kenaikan total volume di tangki
-    t_before_total = (t1_before or 0) + (t2_before or 0) + ((daily_before or 0) * 2)
-    t_after_total = (t1_after or 0) + (t2_after or 0) + ((daily_after or 0) * 2)
-    kenaikan_tangki = (t_after_total - t_before_total) + vol_out # Kenaikan fisik + yg dipompa keluar saat bongkar
+    val_t1_b = t1_before if t1_before is not None else 0.0
+    val_t1_a = t1_after if t1_after is not None else 0.0
+    val_t2_b = t2_before if t2_before is not None else 0.0
+    val_t2_a = t2_after if t2_after is not None else 0.0
+    val_dt_b = daily_before if daily_before is not None else 0.0
+    val_dt_a = daily_after if daily_after is not None else 0.0
+
+    vol_in = val_fm_in_a - val_fm_in_b
+    vol_out = val_fm_out_a - val_fm_out_b
+    
+    # Hitung kenaikan total volume di tangki secara aman
+    t_before_total = val_t1_b + val_t2_b + (val_dt_b * 2)
+    t_after_total = val_t1_a + val_t2_a + (val_dt_a * 2)
+    kenaikan_tangki = (t_after_total - t_before_total) + vol_out 
 
     selisih_penerimaan = vol_in - kenaikan_tangki
 
@@ -71,7 +84,7 @@ def render_penerimaan(conn, role="Logistik"):
         st.metric(label="Kenaikan Level Tangki Aktual", value=f"{kenaikan_tangki:,.0f} L")
     with col_v3:
         if vol_in > 0:
-            if abs(selisih_penerimaan) <= 10: # Toleransi 10 Liter
+            if abs(selisih_penerimaan) <= 10:
                 st.metric(label="Selisih (Loss)", value=f"{selisih_penerimaan:,.0f} L", delta="Aman", delta_color="normal")
             else:
                 st.metric(label="Selisih (Loss)", value=f"{selisih_penerimaan:,.0f} L", delta="PERINGATAN: CEK KEBOCORAN", delta_color="inverse")
@@ -91,15 +104,13 @@ def render_penerimaan(conn, role="Logistik"):
             try:
                 cur = conn.cursor()
                 
-                # ... (Kueri INSERT ke log_penerimaan_tangki biarkan sama) ...
                 cur.execute("DELETE FROM log_penerimaan_tangki WHERE tanggal = %s AND id_area = %s", (tgl_input, lokasi_kap))
                 cur.execute("""
                     INSERT INTO log_penerimaan_tangki 
                     (tanggal, id_area, kategori_sap, fm1_awal, fm1_akhir, volume_terima)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                """, (tgl_input, lokasi_kap, 'GR', float(fm_in_before or 0), float(fm_in_after or 0), float(vol_in)))
+                """, (tgl_input, lokasi_kap, 'GR', float(val_fm_in_b), float(val_fm_in_a), float(vol_in)))
                 
-                # ... (Kueri UPDATE ke daily_stock_log biarkan sama) ...
                 cur.execute("""
                     INSERT INTO daily_stock_log (
                         tanggal, id_area, total_pengisian, 
@@ -117,14 +128,13 @@ def render_penerimaan(conn, role="Logistik"):
                         stok_akhir_level_meter = EXCLUDED.stok_akhir_level_meter;
                 """, (
                     tgl_input, lokasi_kap, float(vol_in), 
-                    float(t1_after or 0), float(t2_after or 0), float((daily_after or 0) * 2), 
+                    float(val_t1_a), float(val_t2_a), float(val_dt_a * 2), 
                     float(t_after_total), float(t_after_total)
                 ))
                 
                 conn.commit()
                 cur.close()
                 
-                # PESAN STATUS PASCA-SIMPAN YANG DIPERBARUI
                 st.success(f"✅ Data Kedatangan BBM berhasil diperbarui! Volume Masuk Truk: **{vol_in:,.0f} L**")
                 
                 if abs(selisih_penerimaan) > 10:
