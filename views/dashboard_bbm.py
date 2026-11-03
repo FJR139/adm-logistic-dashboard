@@ -265,7 +265,7 @@ def render_dashboard(conn):
         tgl_format = f"{selected_date.day} {bulan_list[selected_date.month - 1]} {selected_date.year}"
 
         tab1, tab2 = st.tabs(["📍 Area KAP 1", "📍 Area KAP 2"])
-        kapasitas_max = 20000
+        kapasitas_max = 26000.
 
         # ================= TAB 1: KAP 1 =================
         with tab1:
@@ -311,9 +311,9 @@ def render_dashboard(conn):
                 """, unsafe_allow_html=True)
 
             tank_col1, tank_col2, tank_col3, tank_col4 = st.columns(4)
-            max_tank12 = 100.0
-            max_daily = 1000.0
-            max_total = 20000.0
+            max_tank12 = 13000.0   
+            max_daily = 1000.0     
+            max_total = 26000.0
 
             def render_twin_tank(nama, level_saat_ini, kapasitas_maksimal):
                 pct, color, status, blink_class = get_tank_color(level_saat_ini, kapasitas_maksimal)
