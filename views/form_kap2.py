@@ -100,7 +100,7 @@ def render_kap2(conn, role="Logistik", mode=None):
 
                     cur.execute("SELECT total_pengisian, total_pemakaian, stok_akhir_level_meter FROM daily_stock_log WHERE tanggal = %s AND id_area = 'KAP-2'", (tgl_input,))
                     existing_data = cur.fetchone()
-                    
+                
                     ex_pengisian = float(existing_data[0]) if (existing_data and existing_data[0] is not None) else 0.0
                     ex_pemakaian = float(existing_data[1]) if (existing_data and existing_data[1] is not None) else 0.0
                     ex_stok_akhir = float(existing_data[2]) if (existing_data and existing_data[2] is not None) else 0.0
@@ -126,8 +126,8 @@ def render_kap2(conn, role="Logistik", mode=None):
                                         (tgl_input, 'KAP-2', 'GI Reguler', 'POMPA_LH_PAGI', float(lh_awal), float(lh_akhir), float(vol_lh)))
 
                     stok_awal_val = get_stok_awal(conn, 'KAP-2', tgl_input)
-                    stok_awal_aktual_kap2 = float(stok_awal_val) if stok_awal_val is not None else 0.0
-                    loss_kap2 = round((stok_awal_aktual_kap2 + final_pengisian - final_pemakaian) - final_stok_akhir, 2)
+                    stok_awal_aktual = float(stok_awal_val) if stok_awal_val is not None else 0.0
+                    loss_kap2 = round((float(stok_awal_aktual) + float(final_pengisian) - float(final_pemakaian)) - float(final_stok_akhir), 2)
                     status_loss_kap2 = "SELISIH" if abs(loss_kap2) > 0.01 else "AMAN"
 
                     cur.execute("""INSERT INTO daily_stock_log
@@ -141,7 +141,7 @@ def render_kap2(conn, role="Logistik", mode=None):
                                    loss_kalkulasi = EXCLUDED.loss_kalkulasi,
                                    status_loss = EXCLUDED.status_loss;""",
                                 (tgl_input, 'KAP-2',
-                                 float(round(stok_awal_aktual_kap2, 2)), float(round(final_pengisian, 2)),
+                                 float(round(stok_awal_aktual, 2)), float(round(final_pengisian, 2)),
                                  float(round(final_pemakaian, 2)), float(round(final_stok_akhir, 2)),
                                  float(round(loss_kap2, 2)), status_loss_kap2))
 
