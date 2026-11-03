@@ -87,7 +87,7 @@ def render_penerimaan(conn, role="Logistik"):
             if abs(selisih_penerimaan) <= 10:
                 st.metric(label="Selisih (Loss)", value=f"{selisih_penerimaan:,.0f} L", delta="Aman", delta_color="normal")
             else:
-                st.metric(label="Selisih (Loss)", value=f"{selisih_penerimaan:,.0f} L", delta="PERINGATAN: CEK KEBOCORAN", delta_color="inverse")
+                st.metric(label="Selisih (Loss)", value=f"{selisih_penerimaan:,.0f} L", delta="PERINGATAN!", delta_color="inverse")
         else:
              st.metric(label="Selisih (Loss)", value="0 L")
 
