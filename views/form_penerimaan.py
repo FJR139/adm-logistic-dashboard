@@ -18,7 +18,6 @@ def render_penerimaan(conn, role="Logistik"):
     with col_lok:
         lokasi_kap = st.radio("Lokasi Pembongkaran:", ["KAP-1", "KAP-2"], horizontal=True)
     
-    # TAMBAHAN VALUE=NONE AGAR KOTAK INPUT KOSONG (LEBIH MUDAH DIKETIK)
     st.markdown("### 1. Pencatatan Flowmeter (Liter)")
     with st.container(border=True):
         col_in, col_out = st.columns(2)
@@ -52,7 +51,6 @@ def render_penerimaan(conn, role="Logistik"):
             daily_after = st.number_input("Daily After (Input Asli)", min_value=0.0, format="%.0f", step=1.0, value=None, key="dt_a")
 
     # ================= FILTER NILAI KOSONG & INDIKATOR PRA-SIMPAN =================
-    # Jika kotak input masih kosong (None), otomatis ubah jadi 0.0 untuk hitungan matematis
     val_fm_in_b = fm_in_before if fm_in_before is not None else 0.0
     val_fm_in_a = fm_in_after if fm_in_after is not None else 0.0
     val_fm_out_b = fm_out_before if fm_out_before is not None else 0.0
@@ -68,28 +66,55 @@ def render_penerimaan(conn, role="Logistik"):
     vol_in = val_fm_in_a - val_fm_in_b
     vol_out = val_fm_out_a - val_fm_out_b
     
-    # Hitung kenaikan total volume di tangki secara aman
     t_before_total = val_t1_b + val_t2_b + (val_dt_b * 2)
     t_after_total = val_t1_a + val_t2_a + (val_dt_a * 2)
     kenaikan_tangki = (t_after_total - t_before_total) + vol_out 
 
     selisih_penerimaan = vol_in - kenaikan_tangki
 
+    # --- UI KARTU KPI RINGKASAN ---
     st.write("---")
     st.markdown("#### 🔍 Ringkasan Penerimaan & Validasi Selisih")
+    
+    # Logika Warna Dinamis untuk Kartu Selisih
+    if vol_in == 0:
+        s_color = "#64748B" # Abu-abu (Belum ada input)
+        s_bg = "#F8FAFC"
+        s_status = "Menunggu Input Data..."
+    elif abs(selisih_penerimaan) <= 10:
+        s_color = "#10B981" # Hijau (Aman)
+        s_bg = "#ECFDF5"
+        s_status = "✅ STATUS AMAN"
+    else:
+        s_color = "#EF4444" # Merah (Peringatan)
+        s_bg = "#FEF2F2"
+        s_status = "⚠️ PERINGATAN: CEK KEBOCORAN!"
+
+    # Template HTML Kartu
+    kpi_card_html = """
+    <div style="background-color: {bg}; border-left: 5px solid {border}; padding: 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); height: 100%;">
+        <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 700; text-transform: uppercase;">{title}</p>
+        <h3 style="margin: 6px 0 0 0; color: #1E293B; font-size: 26px;">{value:,.0f} L</h3>
+        <p style="margin: 6px 0 0 0; font-size: 12px; font-weight: 700; color: {border};">{status}</p>
+    </div>
+    """
+
     col_v1, col_v2, col_v3 = st.columns(3)
     with col_v1:
-        st.metric(label="Volume Flowmeter IN (Truk)", value=f"{vol_in:,.0f} L")
+        st.markdown(kpi_card_html.format(
+            bg="#F0F9FF", border="#0EA5E9", title="Volume Flowmeter IN (Truk)", 
+            value=vol_in, status="Data Masuk Aktual"
+        ), unsafe_allow_html=True)
     with col_v2:
-        st.metric(label="Kenaikan Level Tangki Aktual", value=f"{kenaikan_tangki:,.0f} L")
+        st.markdown(kpi_card_html.format(
+            bg="#F3F4F6", border="#6B7280", title="Kenaikan Tangki Aktual", 
+            value=kenaikan_tangki, status="T1 + T2 + (Daily x 2)"
+        ), unsafe_allow_html=True)
     with col_v3:
-        if vol_in > 0:
-            if abs(selisih_penerimaan) <= 10:
-                st.metric(label="Selisih (Loss)", value=f"{selisih_penerimaan:,.0f} L", delta="Aman", delta_color="normal")
-            else:
-                st.metric(label="Selisih (Loss)", value=f"{selisih_penerimaan:,.0f} L", delta="PERINGATAN!", delta_color="inverse")
-        else:
-             st.metric(label="Selisih (Loss)", value="0 L")
+        st.markdown(kpi_card_html.format(
+            bg=s_bg, border=s_color, title="Selisih (Loss)", 
+            value=selisih_penerimaan, status=s_status
+        ), unsafe_allow_html=True)
 
     # ================= TOMBOL SIMPAN =================
     st.write("")
