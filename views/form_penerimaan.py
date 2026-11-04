@@ -1,6 +1,20 @@
 import streamlit as st
 import datetime
 
+@st.dialog("⚠️ Konfirmasi Submit Data Penerimaan")
+def confirm_submit_dialog(trigger_key):
+    st.write("Apakah Anda yakin seluruh data bongkar muat truk tangki yang diinput sudah benar?")
+    st.info("Data penerimaan ini akan langsung memperbarui volume stok dan laporan audit sistem.")
+    
+    col_batal, col_yakin = st.columns(2)
+    with col_batal:
+        if st.button("Tinjau Ulang", use_container_width=True):
+            st.rerun() # Tutup dialog
+    with col_yakin:
+        if st.button("Ya, Simpan Data", type="primary", use_container_width=True):
+            st.session_state[trigger_key] = True
+            st.rerun()
+
 def render_penerimaan(conn, role="Logistik"):
     st.markdown("<h3 style='text-align: center; color: #333333;'>Form Penerimaan BBM (Bongkar Muat)</h3>", unsafe_allow_html=True)
     st.markdown(f"<p style='text-align: center; color: #005A9E;'>Masuk sebagai: <b>{role.upper()}</b></p>", unsafe_allow_html=True)
@@ -76,21 +90,19 @@ def render_penerimaan(conn, role="Logistik"):
     st.write("---")
     st.markdown("#### 🔍 Ringkasan Penerimaan & Validasi Selisih")
     
-    # Logika Warna Dinamis untuk Kartu Selisih
     if vol_in == 0:
-        s_color = "#64748B" # Abu-abu (Belum ada input)
+        s_color = "#64748B"
         s_bg = "#F8FAFC"
         s_status = "Menunggu Input Data..."
     elif abs(selisih_penerimaan) <= 10:
-        s_color = "#10B981" # Hijau (Aman)
+        s_color = "#10B981"
         s_bg = "#ECFDF5"
         s_status = "✅ STATUS AMAN"
     else:
-        s_color = "#EF4444" # Merah (Peringatan)
+        s_color = "#EF4444"
         s_bg = "#FEF2F2"
         s_status = "⚠️ PERINGATAN: CEK KEBOCORAN!"
 
-    # Template HTML Kartu
     kpi_card_html = """
     <div style="background-color: {bg}; border-left: 5px solid {border}; padding: 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); height: 100%;">
         <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 700; text-transform: uppercase;">{title}</p>
@@ -116,11 +128,18 @@ def render_penerimaan(conn, role="Logistik"):
             value=selisih_penerimaan, status=s_status
         ), unsafe_allow_html=True)
 
-    # ================= TOMBOL SIMPAN =================
+    # ================= TOMBOL SIMPAN DENGAN DIALOG KONFIRMASI =================
     st.write("")
-    submitted = st.button("Simpan Data Penerimaan BBM", type="primary", use_container_width=True)
-    
-    if submitted:
+    trigger_key = "confirm_submit_penerimaan"
+    if trigger_key not in st.session_state:
+        st.session_state[trigger_key] = False
+
+    if st.button("Simpan Data Penerimaan BBM", type="primary", use_container_width=True, key="penerimaan_submit_btn"):
+        confirm_submit_dialog(trigger_key)
+
+    if st.session_state[trigger_key]:
+        st.session_state[trigger_key] = False  # Reset state
+        
         if vol_in < 0 or vol_out < 0:
             st.error("❌ Nilai 'After' tidak boleh lebih kecil dari 'Before' pada Flowmeter!")
         elif vol_in == 0:

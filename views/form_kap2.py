@@ -2,6 +2,20 @@ import streamlit as st
 import datetime
 from utils import get_stok_awal
 
+@st.dialog("⚠️ Konfirmasi Submit Data")
+def confirm_submit_dialog(trigger_key):
+    st.write("Apakah Anda yakin seluruh data angka meteran dan tangki yang diinput sudah benar?")
+    st.info("Data yang disubmit akan langsung mengubah laporan Dasbor Utama dan direkam untuk audit.")
+    
+    col_batal, col_yakin = st.columns(2)
+    with col_batal:
+        if st.button("Tinjau Ulang", use_container_width=True):
+            st.rerun() # Tutup dialog
+    with col_yakin:
+        if st.button("Ya, Submit Data", type="primary", use_container_width=True):
+            st.session_state[trigger_key] = True
+            st.rerun()
+
 def render_kap2(conn, role="Logistik", mode=None):
     st.markdown("<h3 style='text-align: center; color: #333333;'>Form Input Data Harian - KAP-2</h3>", unsafe_allow_html=True)
     st.markdown(f"<p style='text-align: center; color: #005A9E;'>Masuk sebagai: <b>{role.upper()}</b></p>", unsafe_allow_html=True)
@@ -96,7 +110,6 @@ def render_kap2(conn, role="Logistik", mode=None):
             c_check2.execute("SELECT total_pengisian, total_pemakaian, stok_akhir_level_meter FROM daily_stock_log WHERE tanggal = %s AND id_area = 'KAP-2'", (tgl_input,))
             row2_prev = c_check2.fetchone()
             if row2_prev:
-                # Pastikan data preview dikonversi ke float
                 ex_isi2_prev = float(row2_prev[0]) if row2_prev[0] is not None else 0.0
                 ex_pakai2_prev = float(row2_prev[1]) if row2_prev[1] is not None else 0.0
                 ex_stok2_prev = float(row2_prev[2]) if row2_prev[2] is not None else 0.0
@@ -104,7 +117,6 @@ def render_kap2(conn, role="Logistik", mode=None):
         except:
             pass
 
-    # Kombinasikan pemakaian logistik (Flowmeter OUT) dan Produksi (Dispenser)
     sim2_pakai = (volume_f1_kap2 + volume_keluar_kap2) if (volume_f1_kap2 + volume_keluar_kap2) > 0 else ex_pakai2_prev
     sim2_stok = total_stok_akhir_kap2 if total_stok_akhir_kap2 > 0 else ex_stok2_prev
     
@@ -119,13 +131,27 @@ def render_kap2(conn, role="Logistik", mode=None):
             else:
                 st.warning(f"ℹ️ Estimasi Selisih Terdeteksi (Loss: {est_loss2:,.1f} L)")
 
-    # ================= STEP 3: DATABASE MERGING & SUBMIT =================
+    # ================= STEP 3: DATABASE MERGING & SUBMIT (DENGAN POP-UP DIALOG) =================
     col_b1, col_b2, col_b3 = st.columns([1, 1, 1])
     with col_b2:
-        if st.button("SUBMIT DATA HARIAN KAP-2", use_container_width=True, type="primary", key="kap2_submit"):
-            if (role in ["Maintenance", "Logistik"] and volume_f1_kap2 < 0) or \
-               (role in ["Produksi", "Logistik"] and volume_keluar_kap2 < 0):
-                st.error("❌ Digit akhir tidak boleh lebih kecil dari digit awal!")
+        # Inisialisasi state unik untuk dialog KAP-2
+        trigger_key = "confirm_submit_kap2"
+        if trigger_key not in st.session_state:
+            st.session_state[trigger_key] = False
+
+        # Tombol utama memanggil pop-up dialog
+        if st.button("SUBMIT DATA HARIAN KAP-2", use_container_width=True, type="primary", key="kap2_submit_btn"):
+            confirm_submit_dialog(trigger_key)
+
+        # Kueri database HANYA berjalan jika operator menekan "Ya, Submit Data" di dalam pop-up
+        if st.session_state[trigger_key]:
+            st.session_state[trigger_key] = False  # Reset state setelah dieksekusi
+            
+            err_maint = (role in ["Maintenance", "Logistik"]) and (volume_f1_kap2 < 0)
+            err_prod = (role in ["Produksi", "Logistik"]) and (vol_rh < 0 or vol_lh < 0)
+            
+            if err_maint or err_prod:
+                st.error("❌ Terdapat digit akhir yang lebih kecil dari digit awal! Periksa kembali inputan Anda.")
             elif conn is not None:
                 try:
                     cur = conn.cursor()
@@ -133,26 +159,22 @@ def render_kap2(conn, role="Logistik", mode=None):
                     cur.execute("SELECT total_pengisian, total_pemakaian, stok_akhir_level_meter FROM daily_stock_log WHERE tanggal = %s AND id_area = 'KAP-2'", (tgl_input,))
                     existing_data = cur.fetchone()
                 
-                    # Konversi Ketat ke Float untuk menghindari decimal.Decimal error
                     ex_pengisian = float(existing_data[0]) if (existing_data and existing_data[0] is not None) else 0.0
                     ex_pemakaian = float(existing_data[1]) if (existing_data and existing_data[1] is not None) else 0.0
                     ex_stok_akhir = float(existing_data[2]) if (existing_data and existing_data[2] is not None) else 0.0
 
                     final_pengisian = ex_pengisian
                     
-                    # Total pemakaian adalah gabungan dari Flowmeter OUT (Logistik) dan Dispenser (Produksi)
                     total_form_pemakaian = float(volume_f1_kap2) + float(volume_keluar_kap2)
                     final_pemakaian = total_form_pemakaian if total_form_pemakaian > 0 else ex_pemakaian
                     
                     final_stok_akhir = float(total_stok_akhir_kap2) if total_stok_akhir_kap2 > 0 else ex_stok_akhir
 
-                    # Simpan catatan spesifik Flowmeter OUT
                     if role in ["Maintenance", "Logistik"] and volume_f1_kap2 > 0:
                         cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
                                        VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                                     (tgl_input, 'KAP-2', 'GI Reguler', 'FLOWMETER_OUT', float(f1_awal_kap2), float(f1_akhir_kap2), float(volume_f1_kap2)))
 
-                    # Simpan catatan spesifik Dispenser Produksi
                     if role in ["Produksi", "Logistik"] and volume_keluar_kap2 > 0:
                         if vol_rh > 0:
                             cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
@@ -163,11 +185,9 @@ def render_kap2(conn, role="Logistik", mode=None):
                                            VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                                         (tgl_input, 'KAP-2', 'GI Reguler', 'POMPA_LH_PAGI', float(lh_awal), float(lh_akhir), float(vol_lh)))
 
-                    # Kalkulasi Akhir Loss
                     loss_kap2 = round((stok_awal_display + final_pengisian - final_pemakaian) - final_stok_akhir, 2)
                     status_loss_kap2 = "SELISIH" if abs(loss_kap2) > 0.01 else "AMAN"
 
-                    # Update ke Master Table
                     cur.execute("""INSERT INTO daily_stock_log
                                    (tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss)
                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
