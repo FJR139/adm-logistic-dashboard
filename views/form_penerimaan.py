@@ -99,7 +99,7 @@ def render_penerimaan(conn, role="Logistik"):
     else:
         s_color = "#EF4444"
         s_bg = "#FEF2F2"
-        s_status = "⚠️ PERINGATAN: CEK KEBOCORAN!"
+        s_status = "⚠️ PERINGATAN!"
 
     kpi_card_html = """
     <div style="background-color: {bg}; border-left: 5px solid {border}; padding: 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); height: 100%;">
