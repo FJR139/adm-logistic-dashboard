@@ -124,7 +124,7 @@ def render_penerimaan(conn, role="Logistik"):
         ), unsafe_allow_html=True)
     with col_v3:
         st.markdown(kpi_card_html.format(
-            bg=s_bg, border=s_color, title="Selisih (Loss)", 
+            bg=s_bg, border=s_color, title="Selisih", 
             value=selisih_penerimaan, status=s_status
         ), unsafe_allow_html=True)
 
