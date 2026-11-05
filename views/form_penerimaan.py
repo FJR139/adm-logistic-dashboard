@@ -6,6 +6,7 @@ def confirm_submit_dialog(trigger_key):
     st.write("Apakah Anda yakin seluruh data bongkar muat truk tangki yang diinput sudah benar?")
     st.info("Data penerimaan ini akan langsung memperbarui volume stok dan laporan audit sistem.")
     
+    # Perbaikan typo 'col_batal, col_yakin = st.comuns(2)' menjadi 'st.columns(2)'
     col_batal, col_yakin = st.columns(2)
     with col_batal:
         if st.button("Tinjau Ulang", use_container_width=True, key=f"cancel_{trigger_key}"):
@@ -32,18 +33,19 @@ def render_penerimaan(conn, role="Logistik"):
     with col_lok:
         lokasi_kap = st.radio("Lokasi Pembongkaran:", ["KAP-1", "KAP-2"], horizontal=True)
     
+    # --- MODIFIKASI: Pencatatan Flowmeter menggunakan Nilai Total ---
     st.markdown("### 1. Pencatatan Flowmeter (Liter)")
     with st.container(border=True):
         col_in, col_out = st.columns(2)
         with col_in:
-            st.write("**Flowmeter IN (Penerimaan)**")
-            fm_in_before = st.number_input("Before (Awal) IN", min_value=0.0, format="%.0f", step=1.0, value=None, key="fm_in_b")
-            fm_in_after = st.number_input("After (Akhir) IN", min_value=0.0, format="%.0f", step=1.0, value=None, key="fm_in_a")
+            st.write("**Flowmeter IN (Penerimaan Truk)**")
+            st.info("Input langsung total liter yang masuk.")
+            vol_in_input = st.number_input("Total Volume Masuk (L)", min_value=0.0, format="%.1f", step=0.1, value=None, key="fm_in_tot")
             
         with col_out:
-            st.write("**Flowmeter OUT**")
-            fm_out_before = st.number_input("Before (Awal) OUT", min_value=0.0, format="%.0f", step=1.0, value=None, key="fm_out_b")
-            fm_out_after = st.number_input("After (Akhir) OUT", min_value=0.0, format="%.0f", step=1.0, value=None, key="fm_out_a")
+            st.write("**Flowmeter OUT (Jika ada)**")
+            st.info("Input total liter keluar (isi 0 jika tidak ada).")
+            vol_out_input = st.number_input("Total Volume Keluar (L)", min_value=0.0, format="%.1f", step=0.1, value=None, key="fm_out_tot")
 
     st.markdown(f"### 2. Pencatatan Level Tangki ({lokasi_kap})")
     with st.container(border=True):
@@ -65,10 +67,9 @@ def render_penerimaan(conn, role="Logistik"):
             daily_after = st.number_input("Daily After (Input Asli)", min_value=0.0, format="%.0f", step=1.0, value=None, key="dt_a")
 
     # ================= FILTER NILAI KOSONG & INDIKATOR PRA-SIMPAN =================
-    val_fm_in_b = fm_in_before if fm_in_before is not None else 0.0
-    val_fm_in_a = fm_in_after if fm_in_after is not None else 0.0
-    val_fm_out_b = fm_out_before if fm_out_before is not None else 0.0
-    val_fm_out_a = fm_out_after if fm_out_after is not None else 0.0
+    # --- MODIFIKASI: Menyesuaikan filter dengan input nilai total ---
+    vol_in = float(vol_in_input) if vol_in_input is not None else 0.0
+    vol_out = float(vol_out_input) if vol_out_input is not None else 0.0
     
     val_t1_b = t1_before if t1_before is not None else 0.0
     val_t1_a = t1_after if t1_after is not None else 0.0
@@ -77,9 +78,6 @@ def render_penerimaan(conn, role="Logistik"):
     val_dt_b = daily_before if daily_before is not None else 0.0
     val_dt_a = daily_after if daily_after is not None else 0.0
 
-    vol_in = val_fm_in_a - val_fm_in_b
-    vol_out = val_fm_out_a - val_fm_out_b
-    
     t_before_total = val_t1_b + val_t2_b + (val_dt_b * 2)
     t_after_total = val_t1_a + val_t2_a + (val_dt_a * 2)
     kenaikan_tangki = (t_after_total - t_before_total) + vol_out 
@@ -106,7 +104,7 @@ def render_penerimaan(conn, role="Logistik"):
     kpi_card_html = """
     <div style="background-color: {bg}; border-left: 5px solid {border}; padding: 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); height: 100%;">
         <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 700; text-transform: uppercase;">{title}</p>
-        <h3 style="margin: 6px 0 0 0; color: #1E293B; font-size: 26px;">{value:,.0f} L</h3>
+        <h3 style="margin: 6px 0 0 0; color: #1E293B; font-size: 26px;">{value:,.1f} L</h3>
         <p style="margin: 6px 0 0 0; font-size: 12px; font-weight: 700; color: {border};">{status}</p>
     </div>
     """
@@ -140,20 +138,21 @@ def render_penerimaan(conn, role="Logistik"):
     if st.session_state[trigger_key]:
         st.session_state[trigger_key] = False  # Reset state
         
-        if vol_in < 0 or vol_out < 0:
-            st.error("❌ Nilai 'After' tidak boleh lebih kecil dari 'Before' pada Flowmeter!")
-        elif vol_in == 0:
+        # --- MODIFIKASI: Hapus pengecekan 'After < Before' karena sekarang inputnya nilai Total ---
+        if vol_in == 0:
             st.warning("⚠️ Volume masuk (Flowmeter IN) masih 0. Pastikan data sudah terisi.")
         elif conn is not None:
             try:
                 cur = conn.cursor()
                 
                 cur.execute("DELETE FROM log_penerimaan_tangki WHERE tanggal = %s AND id_area = %s", (tgl_input, lokasi_kap))
+                
+                # --- MODIFIKASI: Simpan nilai fm1_awal = 0.0 dan fm1_akhir = vol_in ---
                 cur.execute("""
                     INSERT INTO log_penerimaan_tangki 
                     (tanggal, id_area, kategori_sap, fm1_awal, fm1_akhir, volume_terima)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                """, (tgl_input, lokasi_kap, 'GR', float(val_fm_in_b), float(val_fm_in_a), float(vol_in)))
+                """, (tgl_input, lokasi_kap, 'GR', 0.0, float(vol_in), float(vol_in)))
                 
                 cur.execute("""
                     INSERT INTO daily_stock_log (
@@ -179,10 +178,10 @@ def render_penerimaan(conn, role="Logistik"):
                 conn.commit()
                 cur.close()
                 
-                st.success(f"✅ Data Kedatangan BBM berhasil diperbarui! Volume Masuk Truk: **{vol_in:,.0f} L**")
+                st.success(f"✅ Data Kedatangan BBM berhasil diperbarui! Volume Masuk Truk: **{vol_in:,.1f} L**")
                 
                 if abs(selisih_penerimaan) > 10:
-                    st.error(f"⚠️ **PERINGATAN AUDIT:** Terdeteksi selisih sebesar **{selisih_penerimaan:,.0f} Liter** antara meteran truk dan kenaikan tangki pada {lokasi_kap}! Data telah disimpan dengan catatan anomali penerimaan.")
+                    st.error(f"⚠️ **PERINGATAN AUDIT:** Terdeteksi selisih sebesar **{selisih_penerimaan:,.1f} Liter** antara meteran truk dan kenaikan tangki pada {lokasi_kap}! Data telah disimpan dengan catatan anomali penerimaan.")
                 
                 st.toast("Data Bongkar Muat berhasil tersimpan!", icon="🚛")
                 
