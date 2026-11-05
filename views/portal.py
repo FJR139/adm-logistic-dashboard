@@ -1,8 +1,13 @@
 import streamlit as st
 
+# Buat fungsi callback khusus untuk navigasi (akan dipanggil oleh on_click)
+def navigasi_menu(nama_menu):
+    st.session_state.selected_menu = nama_menu
 
-st.info(f"👋 Halo **{st.session_state.get('username', 'User')}**, selamat bekerja! Gunakan menu di bawah ini untuk memulai aktivitas Anda hari ini.")
 def render_portal():
+    # Pindahkan st.info ke dalam fungsi agar tata letaknya selalu terkontrol
+    st.info(f"👋 Halo **{st.session_state.get('username', 'User')}**, selamat bekerja! Gunakan menu di bawah ini untuk memulai aktivitas Anda hari ini.")
+    
     # --- CSS Kustom untuk Portal ---
     st.markdown("""
         <style>
@@ -52,13 +57,12 @@ def render_portal():
         
         btn1_a, btn1_b = st.columns(2)
         with btn1_a:
-            if st.button("📝 Form Input", use_container_width=True, type="primary", key="btn_in_k1"):
-                st.session_state.selected_menu = "Form Input KAP 1"
-                st.rerun()
+            # Gunakan on_click dan hapus if st.button serta st.rerun()
+            st.button("📝 Form Input", use_container_width=True, type="primary", key="btn_in_k1", 
+                      on_click=navigasi_menu, args=("Form Input KAP 1",))
         with btn1_b:
-            if st.button("📊 Lihat Dashboard", use_container_width=True, type="secondary", key="btn_dash_k1"):
-                st.session_state.selected_menu = "Dashboard Monitoring"
-                st.rerun()
+            st.button("📊 Lihat Dashboard", use_container_width=True, type="secondary", key="btn_dash_k1", 
+                      on_click=navigasi_menu, args=("Dashboard Monitoring",))
 
     # ================= KARTU KAP 2 =================
     with col2:
@@ -75,10 +79,8 @@ def render_portal():
         
         btn2_a, btn2_b = st.columns(2)
         with btn2_a:
-            if st.button("📝 Form Input", use_container_width=True, type="primary", key="btn_in_k2"):
-                st.session_state.selected_menu = "Form Input KAP 2"
-                st.rerun()
+            st.button("📝 Form Input", use_container_width=True, type="primary", key="btn_in_k2", 
+                      on_click=navigasi_menu, args=("Form Input KAP 2",))
         with btn2_b:
-            if st.button("📊 Lihat Dashboard", use_container_width=True, type="secondary", key="btn_dash_k2"):
-                st.session_state.selected_menu = "Dashboard Monitoring"
-                st.rerun()
+            st.button("📊 Lihat Dashboard", use_container_width=True, type="secondary", key="btn_dash_k2", 
+                      on_click=navigasi_menu, args=("Dashboard Monitoring",))
