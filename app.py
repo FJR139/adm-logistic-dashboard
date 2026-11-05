@@ -141,19 +141,18 @@ st.sidebar.write("---")
 st.sidebar.markdown("### 📌 Navigasi Menu")
 
 # Pembatasan Menu (RBAC Sidebar Menu)
-# Pembatasan Menu (RBAC Sidebar Menu)
 if role == "Maintenance":
-    menu_options = ["Daily Input KAP 1", "Daily Input KAP 2"]
+    # UBAH: Sesuaikan nama dengan yang dikirim oleh portal ("Form Input KAP 1")
+    menu_options = ["Form Input KAP 1", "Form Input KAP 2"]
     st.sidebar.info("🛠️ **Maintenance Mode:** Akses terbatas pada input harian.")
 elif role == "Produksi":
-    menu_options = ["Daily Input KAP 1", "Daily Input KAP 2"]
+    menu_options = ["Form Input KAP 1", "Form Input KAP 2"]
     st.sidebar.info("⚙️ **Produksi Mode:** Akses terbatas pada input harian produksi.")
 else:  # Logistik (Superadmin / Validator)
-    # Logistik mendapat tambahan menu Penerimaan BBM
     menu_options = [
         "Portal Utama", 
-        "Daily Input KAP 1", 
-        "Daily Input KAP 2",
+        "Form Input KAP 1",    # <-- Sudah disamakan dengan portal
+        "Form Input KAP 2",    # <-- Sudah disamakan dengan portal
         "Penerimaan BBM",
         "Dashboard Monitoring", 
         "Dashboard Analisis Tren", 
@@ -161,16 +160,16 @@ else:  # Logistik (Superadmin / Validator)
     ]
     st.sidebar.success("👑 **Logistik Mode:** Akses penuh (Superadmin & Validator).")
 
-# Sinkronisasi pilihan menu di sidebar dengan session state
+# Sinkronisasi jika menu saat ini tidak ada di pilihan role yang baru dipilih
 if st.session_state.selected_menu not in menu_options:
     st.session_state.selected_menu = menu_options[0]
 
-selected_menu = st.sidebar.radio(
+# PERBAIKAN FATAL: Tambahkan key="selected_menu" dan buang manual index/assignment
+st.sidebar.radio(
     "Pilih Menu",
-    menu_options,
-    index=menu_options.index(st.session_state.selected_menu)
+    options=menu_options,
+    key="selected_menu"  # <-- KUNCI UTAMA AGAR TERHUBUNG DENGAN TOMBOL PORTAL
 )
-st.session_state.selected_menu = selected_menu
 
 st.sidebar.write("---")
 st.sidebar.caption("PT Astra Daihatsu Motor (ADM) © 2026")
@@ -178,19 +177,20 @@ st.sidebar.caption("PT Astra Daihatsu Motor (ADM) © 2026")
 # ROUTING HALAMAN UTAMA
 # ==========================================
 if conn:
-    if selected_menu == "Portal Utama":
+    # Ganti variabel cek dengan st.session_state.selected_menu
+    if st.session_state.selected_menu == "Portal Utama":
         render_portal()
-    elif selected_menu == "Daily Input KAP 1":
+    elif st.session_state.selected_menu == "Form Input KAP 1":  # <-- Nama disesuaikan
         render_kap1(conn, role=role, mode="Daily") 
-    elif selected_menu == "Daily Input KAP 2":
+    elif st.session_state.selected_menu == "Form Input KAP 2":  # <-- Nama disesuaikan
         render_kap2(conn, role=role, mode="Daily")
-    elif selected_menu == "Penerimaan BBM":
+    elif st.session_state.selected_menu == "Penerimaan BBM":
         render_penerimaan(conn, role=role)
-    elif selected_menu == "Dashboard Monitoring":
+    elif st.session_state.selected_menu == "Dashboard Monitoring":
         render_dashboard(conn)
-    elif selected_menu == "Dashboard Analisis Tren":
+    elif st.session_state.selected_menu == "Dashboard Analisis Tren":
         render_dashboard_tren(conn)
-    elif selected_menu == "Import Data Historis":
+    elif st.session_state.selected_menu == "Import Data Historis":
         render_import_data(conn)
 else:
     st.error("❌ Koneksi ke database belum siap. Periksa konfigurasi secrets Anda.")
