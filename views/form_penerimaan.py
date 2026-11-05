@@ -8,10 +8,10 @@ def confirm_submit_dialog(trigger_key):
     
     col_batal, col_yakin = st.columns(2)
     with col_batal:
-        if st.button("Tinjau Ulang", use_container_width=True):
-            st.rerun() # Tutup dialog
+        if st.button("Tinjau Ulang", use_container_width=True, key=f"cancel_{trigger_key}"):
+            st.rerun()
     with col_yakin:
-        if st.button("Ya, Simpan Data", type="primary", use_container_width=True):
+        if st.button("Ya, Submit Data", type="primary", use_container_width=True, key=f"ok_{trigger_key}"):
             st.session_state[trigger_key] = True
             st.rerun()
 
