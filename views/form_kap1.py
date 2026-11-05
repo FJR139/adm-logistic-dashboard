@@ -180,7 +180,88 @@ def render_kap1(conn, role="Logistik", mode=None):
             elif conn is not None:
                 try:
                     cur = conn.cursor()
-                                        
+                    
+                    # MULAI BLOK KUERI DATABASE YANG SEBELUMNYA HILANG
+                    cur.execute("SELECT total_pengisian, total_pemakaian, stok_akhir_level_meter, tank1_level, tank2_level, daily_tank_level, total_storage_level, totalisator_out_assy FROM daily_stock_log WHERE tanggal = %s AND id_area = 'KAP-1'", (tgl_input,))
+                    existing_data = cur.fetchone()
+
+                    ex_pengisian = float(existing_data[0]) if (existing_data and existing_data[0] is not None) else 0.0
+                    ex_pemakaian = float(existing_data[1]) if (existing_data and existing_data[1] is not None) else 0.0
+                    ex_stok_akhir = float(existing_data[2]) if (existing_data and existing_data[2] is not None) else 0.0
+                    ex_t1 = float(existing_data[3]) if (existing_data and existing_data[3] is not None) else 0.0
+                    ex_t2 = float(existing_data[4]) if (existing_data and existing_data[4] is not None) else 0.0
+                    ex_tdaily = float(existing_data[5]) if (existing_data and existing_data[5] is not None) else 0.0
+                    ex_tstorage = float(existing_data[6]) if (existing_data and existing_data[6] is not None) else 0.0
+                    ex_tot = float(existing_data[7]) if (existing_data and existing_data[7] is not None) else 0.0
+
+                    is_maint = role in ["Maintenance", "Logistik"]
+                    is_prod = role in ["Produksi", "Logistik"]
+
+                    final_pengisian = ex_pengisian
+                    
+                    total_pemakaian_form = float(totalisator_out_assy_input) + float(volume_f5) + float(total_volume_reguler)
+                    final_pemakaian = total_pemakaian_form if total_pemakaian_form > 0 else ex_pemakaian
+                    
+                    final_stok_akhir = float(total_storage) if is_maint else ex_stok_akhir
+                    
+                    final_t1 = float(val_tank1) if is_maint else ex_t1
+                    final_t2 = float(val_tank2) if is_maint else ex_t2
+                    final_tdaily = float(daily_tank_actual) if is_maint else ex_tdaily
+                    final_tstorage = float(total_storage) if is_maint else ex_tstorage
+                    final_tot = float(totalisator_out_assy_input) if is_maint else ex_tot
+
+                    if is_maint and totalisator_out_assy_input > 0:
+                         cur.execute("DELETE FROM log_pengeluaran_dispenser WHERE tanggal = %s AND id_area = 'KAP-1' AND id_flowmeter IN ('FLOWMETER_OUT', 'F5_RnD')", (tgl_input,))
+                         cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
+                                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                                    (tgl_input, 'KAP-1', 'GI Reguler', 'FLOWMETER_OUT', float(tot_out_awal), float(tot_out_akhir), float(totalisator_out_assy_input)))
+                    
+                    if is_maint and volume_f5 > 0:
+                        cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
+                                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                                    (tgl_input, 'KAP-1', 'GI Non-Reguler', 'F5_RnD', 0.0, 0.0, float(volume_f5)))
+
+                    if is_prod and total_volume_reguler > 0:
+                        cur.execute("DELETE FROM log_pengeluaran_dispenser WHERE tanggal = %s AND id_area = 'KAP-1' AND id_flowmeter LIKE 'POMPA%%'", (tgl_input,))
+                        data_dispenser = [
+                            ('POMPA_RH_SHIFTA', rh_a_awal, rh_a_akhir, vol_rh_a),
+                            ('POMPA_LH_SHIFTA', lh_a_awal, lh_a_akhir, vol_lh_a),
+                            ('POMPA_RH_SHIFTB', rh_b_awal, rh_b_akhir, vol_rh_b),
+                            ('POMPA_LH_SHIFTB', lh_b_awal, lh_b_akhir, vol_lh_b)
+                        ]
+                        for n_pompa, aw, ak, vol in data_dispenser:
+                            if vol > 0:
+                                cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
+                                               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                                            (tgl_input, 'KAP-1', 'GI Reguler', n_pompa, float(aw), float(ak), float(vol)))
+
+                    loss = round((stok_awal_display + final_pengisian - final_pemakaian) - final_stok_akhir, 2)
+                    status_loss = "SELISIH" if abs(loss) > 0.01 else "AMAN"
+
+                    cur.execute("""INSERT INTO daily_stock_log
+                                   (tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss, tank1_level, tank2_level, daily_tank_level, total_storage_level, totalisator_out_assy)
+                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                   ON CONFLICT (tanggal, id_area) DO UPDATE SET
+                                   stok_awal_level_meter = EXCLUDED.stok_awal_level_meter,
+                                   total_pengisian = EXCLUDED.total_pengisian,
+                                   total_pemakaian = EXCLUDED.total_pemakaian,
+                                   stok_akhir_level_meter = EXCLUDED.stok_akhir_level_meter,
+                                   loss_kalkulasi = EXCLUDED.loss_kalkulasi,
+                                   status_loss = EXCLUDED.status_loss,
+                                   tank1_level = EXCLUDED.tank1_level,
+                                   tank2_level = EXCLUDED.tank2_level,
+                                   daily_tank_level = EXCLUDED.daily_tank_level,
+                                   total_storage_level = EXCLUDED.total_storage_level,
+                                   totalisator_out_assy = EXCLUDED.totalisator_out_assy;""",
+                                (
+                                tgl_input, 'KAP-1',
+                                float(round(stok_awal_display, 2)), float(round(final_pengisian, 2)),
+                                float(round(final_pemakaian, 2)), float(round(final_stok_akhir, 2)),
+                                float(round(loss, 2)), status_loss,
+                                float(final_t1), float(final_t2), float(final_tdaily), float(final_tstorage), float(final_tot)
+                                ))
+                    # AKHIR BLOK KUERI DATABASE
+                    
                     conn.commit()
                     cur.close()
                     st.success(f"✅ Data KAP-1 tanggal {tgl_input.strftime('%d %B %Y')} berhasil diperbarui oleh {role.upper()}!")
