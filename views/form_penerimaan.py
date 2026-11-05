@@ -1,5 +1,6 @@
 import streamlit as st
 import datetime
+from utils import get_stok_awal
 
 @st.dialog("⚠️ Konfirmasi Submit Data Penerimaan")
 def confirm_submit_dialog(trigger_key):
@@ -154,13 +155,16 @@ def render_penerimaan(conn, role="Logistik"):
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (tgl_input, lokasi_kap, 'GR', 0.0, float(vol_in), float(vol_in)))
                 
+                stok_awal_val = get_stok_awal(conn, lokasi_kap, tgl_input)
+                stok_awal_penerimaan = float(stok_awal_val) if stok_awal_val is not None else 0.0
+
                 cur.execute("""
                     INSERT INTO daily_stock_log (
-                        tanggal, id_area, total_pengisian, 
+                        tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian,
                         tank1_level, tank2_level, daily_tank_level, 
-                        total_storage_level, stok_akhir_level_meter
+                        total_storage_level, stok_akhir_level_meter, loss_kalkulasi, status_loss
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (tanggal, id_area) 
                     DO UPDATE SET 
                         total_pengisian = EXCLUDED.total_pengisian,
@@ -170,9 +174,9 @@ def render_penerimaan(conn, role="Logistik"):
                         total_storage_level = EXCLUDED.total_storage_level,
                         stok_akhir_level_meter = EXCLUDED.stok_akhir_level_meter;
                 """, (
-                    tgl_input, lokasi_kap, float(vol_in), 
+                    tgl_input, lokasi_kap, stok_awal_penerimaan, float(vol_in), 0.0,
                     float(val_t1_a), float(val_t2_a), float(val_dt_a * 2), 
-                    float(t_after_total), float(t_after_total)
+                    float(t_after_total), float(t_after_total), 0.0, 'AMAN'
                 ))
                 
                 conn.commit()

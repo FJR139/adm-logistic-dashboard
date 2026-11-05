@@ -164,9 +164,14 @@ def render_kap1(conn, role="Logistik", mode=None):
         if trigger_key not in st.session_state:
             st.session_state[trigger_key] = False
 
-        # Tombol utama memanggil pop-up dialog
+        # Tombol utama memanggil pop-up dialog (dengan validasi awal)
         if st.button("SUBMIT DATA HARIAN KAP-1", use_container_width=True, type="primary", key="kap1_submit_btn"):
-            confirm_submit_dialog(trigger_key)
+            err_maint_pre = (role in ["Maintenance", "Logistik"]) and (totalisator_out_assy_input < 0 or volume_f5 < 0)
+            err_prod_pre = (role in ["Produksi", "Logistik"]) and (vol_rh_a < 0 or vol_lh_a < 0 or vol_rh_b < 0 or vol_lh_b < 0)
+            if err_maint_pre or err_prod_pre:
+                st.error("❌ Terdapat digit akhir yang lebih kecil dari digit awal! Periksa kembali inputan Anda.")
+            else:
+                confirm_submit_dialog(trigger_key)
 
         # Kueri database HANYA berjalan jika operator menekan "Ya, Submit Data" di dalam pop-up
         if st.session_state[trigger_key]:

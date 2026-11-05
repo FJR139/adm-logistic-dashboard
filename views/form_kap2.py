@@ -7,7 +7,7 @@ def confirm_submit_dialog(trigger_key):
     st.write("Apakah Anda yakin seluruh data angka meteran dan tangki yang diinput sudah benar?")
     st.info("Data yang disubmit akan langsung mengubah laporan Dasbor Utama dan direkam untuk audit.")
     
-    col_batal, col_yakin = st.comuns(2)
+    col_batal, col_yakin = st.columns(2)
     with col_batal:
         if st.button("Tinjau Ulang", use_container_width=True, key=f"cancel_{trigger_key}"):
             st.rerun()
@@ -139,9 +139,14 @@ def render_kap2(conn, role="Logistik", mode=None):
         if trigger_key not in st.session_state:
             st.session_state[trigger_key] = False
 
-        # Tombol utama memanggil pop-up dialog
+        # Tombol utama memanggil pop-up dialog (dengan validasi awal)
         if st.button("SUBMIT DATA HARIAN KAP-2", use_container_width=True, type="primary", key="kap2_submit_btn"):
-            confirm_submit_dialog(trigger_key)
+            err_maint_pre = (role in ["Maintenance", "Logistik"]) and (volume_f1_kap2 < 0)
+            err_prod_pre = (role in ["Produksi", "Logistik"]) and (vol_rh < 0 or vol_lh < 0)
+            if err_maint_pre or err_prod_pre:
+                st.error("❌ Terdapat digit akhir yang lebih kecil dari digit awal! Periksa kembali inputan Anda.")
+            else:
+                confirm_submit_dialog(trigger_key)
 
         # Kueri database HANYA berjalan jika operator menekan "Ya, Submit Data" di dalam pop-up
         if st.session_state[trigger_key]:
@@ -156,12 +161,15 @@ def render_kap2(conn, role="Logistik", mode=None):
                 try:
                     cur = conn.cursor()
 
-                    cur.execute("SELECT total_pengisian, total_pemakaian, stok_akhir_level_meter FROM daily_stock_log WHERE tanggal = %s AND id_area = 'KAP-2'", (tgl_input,))
+                    cur.execute("SELECT total_pengisian, total_pemakaian, stok_akhir_level_meter, tank1_level, tank2_level, daily_tank_level FROM daily_stock_log WHERE tanggal = %s AND id_area = 'KAP-2'", (tgl_input,))
                     existing_data = cur.fetchone()
                 
                     ex_pengisian = float(existing_data[0]) if (existing_data and existing_data[0] is not None) else 0.0
                     ex_pemakaian = float(existing_data[1]) if (existing_data and existing_data[1] is not None) else 0.0
                     ex_stok_akhir = float(existing_data[2]) if (existing_data and existing_data[2] is not None) else 0.0
+                    ex_t1 = float(existing_data[3]) if (existing_data and existing_data[3] is not None) else 0.0
+                    ex_t2 = float(existing_data[4]) if (existing_data and existing_data[4] is not None) else 0.0
+                    ex_dt = float(existing_data[5]) if (existing_data and existing_data[5] is not None) else 0.0
 
                     final_pengisian = ex_pengisian
                     
@@ -169,6 +177,9 @@ def render_kap2(conn, role="Logistik", mode=None):
                     final_pemakaian = total_form_pemakaian if total_form_pemakaian > 0 else ex_pemakaian
                     
                     final_stok_akhir = float(total_stok_akhir_kap2) if total_stok_akhir_kap2 > 0 else ex_stok_akhir
+                    final_t1 = float(pv_tank1_kap2) if pv_tank1_kap2 > 0 else ex_t1
+                    final_t2 = float(pv_tank2_kap2) if pv_tank2_kap2 > 0 else ex_t2
+                    final_dt = float(pv_daily_kap2) if pv_daily_kap2 > 0 else ex_dt
 
                     if role in ["Maintenance", "Logistik"] and volume_f1_kap2 > 0:
                         cur.execute("""INSERT INTO log_pengeluaran_dispenser (tanggal, id_area, kategori_sap, id_flowmeter, angka_meter_awal, angka_meter_akhir, volume_keluar)
@@ -189,19 +200,23 @@ def render_kap2(conn, role="Logistik", mode=None):
                     status_loss_kap2 = "SELISIH" if abs(loss_kap2) > 0.01 else "AMAN"
 
                     cur.execute("""INSERT INTO daily_stock_log
-                                   (tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss)
-                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                   (tanggal, id_area, stok_awal_level_meter, total_pengisian, total_pemakaian, stok_akhir_level_meter, loss_kalkulasi, status_loss, tank1_level, tank2_level, daily_tank_level)
+                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                                    ON CONFLICT (tanggal, id_area) DO UPDATE SET
                                    stok_awal_level_meter = EXCLUDED.stok_awal_level_meter,
                                    total_pengisian = EXCLUDED.total_pengisian,
                                    total_pemakaian = EXCLUDED.total_pemakaian,
                                    stok_akhir_level_meter = EXCLUDED.stok_akhir_level_meter,
                                    loss_kalkulasi = EXCLUDED.loss_kalkulasi,
-                                   status_loss = EXCLUDED.status_loss;""",
+                                   status_loss = EXCLUDED.status_loss,
+                                   tank1_level = EXCLUDED.tank1_level,
+                                   tank2_level = EXCLUDED.tank2_level,
+                                   daily_tank_level = EXCLUDED.daily_tank_level;""",
                                 (tgl_input, 'KAP-2',
                                  float(round(stok_awal_display, 2)), float(round(final_pengisian, 2)),
                                  float(round(final_pemakaian, 2)), float(round(final_stok_akhir, 2)),
-                                 float(round(loss_kap2, 2)), status_loss_kap2))
+                                 float(round(loss_kap2, 2)), status_loss_kap2,
+                                 float(final_t1), float(final_t2), float(final_dt)))
 
                     conn.commit()
                     cur.close()

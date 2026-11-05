@@ -130,33 +130,37 @@ def render_dashboard_tren(conn):
         try:
             df = get_data_tren(conn, tgl_mulai, tgl_selesai, area)
 
-            # Penambal otomatis kolom status_loss
-            if not df.empty and 'loss_kalkulasi' in df.columns:
-                # Pastikan kolom dikonversi ke numerik, ganti None/NaN dengan 0
-                df['loss_kalkulasi'] = pd.to_numeric(df['loss_kalkulasi'], errors='coerce').fillna(0.0)
-                
+            if df.empty:
+                st.warning(f"⚠️ Belum ada catatan data operasional untuk **{area}** pada rentang **{tgl_mulai.strftime('%d %b %Y')} - {tgl_selesai.strftime('%d %b %Y')}**.")
+            else:
+                # 1. Bersihkan SELURUH kolom numerik dari nilai NULL / None / NaN
+                numeric_cols = [
+                    'stok_awal_level_meter', 'total_pengisian', 'total_pemakaian',
+                    'stok_akhir_level_meter', 'loss_kalkulasi',
+                    'tank1_level', 'tank2_level', 'daily_tank_level'
+                ]
+                for col in numeric_cols:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+
+                # Penambal otomatis kolom status_loss
                 df['status_loss'] = np.where(
                     df['loss_kalkulasi'].abs() > 0.01,
                     'SELISIH',
                     'AMAN'
                 )
 
-            if df.empty:
-                st.warning(f"⚠️ Belum ada catatan data operasional untuk **{area}** pada rentang **{tgl_mulai.strftime('%d %b %Y')} - {tgl_selesai.strftime('%d %b %Y')}**.")
-            else:
                 df['tanggal'] = pd.to_datetime(df['tanggal'])
                 df['tgl_str'] = df['tanggal'].dt.strftime('%d-%b')
 
-                # Isi nilai null pada tangki dengan angka 0
-                df['tank1_level'] = df['tank1_level'].fillna(0)
-                df['tank2_level'] = df['tank2_level'].fillna(0)
-                df['daily_tank_level'] = df['daily_tank_level'].fillna(0)
-
                 # --- 2. Ringkasan Eksekutif (KPI Header) ---
-                total_masuk = df['total_pengisian'].sum()
-                total_keluar = df['total_pemakaian'].sum()
-                rata_pemakaian = df['total_pemakaian'].mean()
-                total_loss = df['loss_kalkulasi'].sum()
+                total_masuk = float(df['total_pengisian'].sum())
+                total_keluar = float(df['total_pemakaian'].sum())
+                
+                # Rata-rata harian: hindari nan jika belum ada data pemakaian
+                hari_pakai = df[df['total_pemakaian'] > 0]['total_pemakaian']
+                rata_pemakaian = float(hari_pakai.mean()) if not hari_pakai.empty else 0.0
+                total_loss = float(df['loss_kalkulasi'].sum())
 
                 # Hitung perbandingan dengan durasi periode sebelumnya yang sama panjangnya
                 durasi_hari = (tgl_selesai - tgl_mulai).days + 1
@@ -164,7 +168,9 @@ def render_dashboard_tren(conn):
                 tgl_mulai_prev = tgl_selesai_prev - timedelta(days=durasi_hari - 1)
                 
                 df_prev = get_data_tren(conn, tgl_mulai_prev, tgl_selesai_prev, area)
-                total_keluar_prev = df_prev['total_pemakaian'].sum() if not df_prev.empty else 0
+                total_keluar_prev = 0.0
+                if not df_prev.empty and 'total_pemakaian' in df_prev.columns:
+                    total_keluar_prev = float(pd.to_numeric(df_prev['total_pemakaian'], errors='coerce').fillna(0.0).sum())
 
                 if total_keluar_prev > 0:
                     delta_pct = ((total_keluar - total_keluar_prev) / total_keluar_prev) * 100
