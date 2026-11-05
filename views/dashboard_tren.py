@@ -132,8 +132,11 @@ def render_dashboard_tren(conn):
 
             # Penambal otomatis kolom status_loss
             if not df.empty and 'loss_kalkulasi' in df.columns:
+                # Pastikan kolom dikonversi ke numerik, ganti None/NaN dengan 0
+                df['loss_kalkulasi'] = pd.to_numeric(df['loss_kalkulasi'], errors='coerce').fillna(0.0)
+                
                 df['status_loss'] = np.where(
-                    df['loss_kalkulasi'].notna() & (df['loss_kalkulasi'].abs() > 0.01),
+                    df['loss_kalkulasi'].abs() > 0.01,
                     'SELISIH',
                     'AMAN'
                 )
