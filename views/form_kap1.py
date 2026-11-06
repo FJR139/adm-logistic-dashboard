@@ -66,15 +66,14 @@ def render_kap1(conn, role="Logistik", mode=None):
                 col_f5, col_tot = st.columns(2)
                 with col_f5:
                     with st.container(border=True):
-                        f5_total_in = st.number_input("Flowmeter Liter RnD (F5)", min_value=0.0, format="%.0f", key="kap1_f5", step=1.0, value=None)
-                        volume_f5 = float(f5_total_in) if f5_total_in is not None else 0.0
-                with col_tot:
-                    with st.container(border=True):
-                        tot_out_awal_in = st.number_input("Flowmeter Out Awal", min_value=0.0, format="%.0f", step=1.0, value=None, key="kap1_tot_awal")
-                        tot_out_akhir_in = st.number_input("Flowmeter Out Akhir", min_value=0.0, format="%.0f", step=1.0, value=None, key="kap1_tot_akhir")
-                        tot_out_awal = float(tot_out_awal_in) if tot_out_awal_in is not None else 0.0
-                        tot_out_akhir = float(tot_out_akhir_in) if tot_out_akhir_in is not None else 0.0
-                        totalisator_out_assy_input = tot_out_akhir - tot_out_awal
+                        st.write("**Flowmeter RnD (F5)**")
+                        f5_awal_in = st.number_input("Meter Awal RnD", min_value=0.0, format="%.0f", key="kap1_f5_awal", step=1.0, value=None)
+                        f5_akhir_in = st.number_input("Meter Akhir RnD", min_value=0.0, format="%.0f", key="kap1_f5_akhir", step=1.0, value=None)
+        
+                        f5_awal = float(f5_awal_in) if f5_awal_in is not None else 0.0
+                        f5_akhir = float(f5_akhir_in) if f5_akhir_in is not None else 0.0
+                        # Sistem menghitung otomatis pemakaian harian
+                        volume_f5 = (f5_akhir - f5_awal) if f5_akhir >= f5_awal else 0.0
             else:
                 st.warning("🔒 Area ini khusus untuk Tim Logistik & Maintenance.")
 
